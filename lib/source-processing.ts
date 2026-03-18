@@ -149,16 +149,21 @@ export async function extractBooksFromSource(input: {
                 properties: {
                   title: { type: "string" },
                   author: { type: "string" },
-                  confidence: { type: "number" },
-                  snippet: { type: "string" },
-                  rationale: { type: "string" },
-                  sourceSection: { type: "string" },
+                  confidence: { type: ["number", "null"] },
+                  snippet: { type: ["string", "null"] },
+                  rationale: { type: ["string", "null"] },
+                  sourceSection: { type: ["string", "null"] },
                   tags: {
-                    type: "array",
-                    items: { type: "string" }
+                    anyOf: [
+                      {
+                        type: "array",
+                        items: { type: "string" }
+                      },
+                      { type: "null" }
+                    ]
                   }
                 },
-                required: ["title", "author"]
+                required: ["title", "author", "confidence", "snippet", "rationale", "sourceSection", "tags"]
               }
             }
           },
