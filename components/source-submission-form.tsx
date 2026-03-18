@@ -47,10 +47,10 @@ export function SourceSubmissionForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type,
-          title,
-          rawText,
-          url,
-          sourceFilename: fileName,
+          title: title.trim() || undefined,
+          rawText: rawText.trim() || undefined,
+          url: url.trim() || undefined,
+          sourceFilename: fileName.trim() || undefined,
           sourceMetadata: metadata ? JSON.parse(metadata) : undefined
         })
       });
