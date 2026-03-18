@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getTasteProfile, listBooksForUser } from "@/lib/data";
 import { prisma } from "@/lib/prisma";
 import { rankRecommendations } from "@/lib/recommendations";
+import { getRequiredSessionUser } from "@/lib/session-user";
 
 const querySchema = z.object({
   query: z.string().min(2),
@@ -10,8 +11,13 @@ const querySchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const sessionResult = await getRequiredSessionUser();
+  if ("error" in sessionResult) {
+    return sessionResult.error;
+  }
+
   const payload = querySchema.parse(await request.json());
-  const userId = process.env.DEMO_USER_ID ?? "demo-user";
+  const userId = sessionResult.user.id;
   const books = await listBooksForUser(payload.includePrivate ? userId : undefined);
   const tasteProfile = await getTasteProfile(userId);
   const ranked = rankRecommendations(books, payload.query, tasteProfile);

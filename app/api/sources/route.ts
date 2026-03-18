@@ -3,6 +3,7 @@ import { Prisma, SourceType } from "@prisma/client";
 import { z } from "zod";
 import { createSourceRecord } from "@/lib/data";
 import { prisma } from "@/lib/prisma";
+import { getRequiredSessionUser } from "@/lib/session-user";
 import { extractBooksFromSource, normalizeSourceInput } from "@/lib/source-processing";
 
 const sourceSchema = z.object({
@@ -15,6 +16,11 @@ const sourceSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const sessionResult = await getRequiredSessionUser();
+  if ("error" in sessionResult) {
+    return sessionResult.error;
+  }
+
   const payload = sourceSchema.parse(await request.json());
   const normalized = await normalizeSourceInput(payload);
   const extracted = await extractBooksFromSource({
@@ -24,7 +30,7 @@ export async function POST(request: Request) {
   });
 
   const source = await createSourceRecord({
-    submittedByUserId: process.env.DEMO_USER_ID ?? "demo-user",
+    submittedByUserId: sessionResult.user.id,
     type: payload.type.toUpperCase() as SourceType,
     title: payload.title || normalized.title,
     rawText: normalized.rawText,

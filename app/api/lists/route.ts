@@ -2,6 +2,7 @@ import { ListVisibility } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { getRequiredSessionUser } from "@/lib/session-user";
 
 const createListSchema = z.object({
   name: z.string().min(1),
@@ -9,9 +10,14 @@ const createListSchema = z.object({
 });
 
 export async function GET() {
+  const sessionResult = await getRequiredSessionUser();
+  if ("error" in sessionResult) {
+    return sessionResult.error;
+  }
+
   const lists = await prisma.list.findMany({
     where: {
-      userId: process.env.DEMO_USER_ID ?? "demo-user"
+      userId: sessionResult.user.id
     },
     include: { items: true },
     orderBy: { createdAt: "desc" }
@@ -21,11 +27,16 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const sessionResult = await getRequiredSessionUser();
+  if ("error" in sessionResult) {
+    return sessionResult.error;
+  }
+
   const payload = createListSchema.parse(await request.json());
 
   const list = await prisma.list.create({
     data: {
-      userId: process.env.DEMO_USER_ID ?? "demo-user",
+      userId: sessionResult.user.id,
       name: payload.name,
       visibility: (payload.visibility ?? "PRIVATE") as ListVisibility
     }

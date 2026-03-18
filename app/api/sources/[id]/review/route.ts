@@ -2,6 +2,7 @@ import { ReviewDecision, SourceStatus, SourceVisibility } from "@prisma/client";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { getRequiredSessionUser } from "@/lib/session-user";
 
 const reviewSchema = z.object({
   decision: z.enum(["APPROVED", "REJECTED", "MERGED"]),
@@ -9,13 +10,22 @@ const reviewSchema = z.object({
 });
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const sessionResult = await getRequiredSessionUser();
+  if ("error" in sessionResult) {
+    return sessionResult.error;
+  }
+
+  if (sessionResult.user.role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const { id } = await params;
   const payload = reviewSchema.parse(await request.json());
 
   const review = await prisma.adminReview.create({
     data: {
       sourceId: id,
-      reviewerUserId: process.env.DEMO_ADMIN_ID ?? process.env.DEMO_USER_ID ?? "demo-admin",
+      reviewerUserId: sessionResult.user.id,
       decision: payload.decision as ReviewDecision,
       notes: payload.notes
     }
