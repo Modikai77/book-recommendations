@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { BookOpenText, LayoutDashboard, ListChecks, Search, UploadCloud, UserRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -50,6 +51,13 @@ export function SiteShell({ children }: { children: React.ReactNode }) {
               );
             })}
           </nav>
+          <button
+            type="button"
+            onClick={() => signOut({ callbackUrl: "/" })}
+            className="mt-8 w-full rounded-2xl border border-stone-200 px-4 py-3 text-left text-sm text-stone-700 transition hover:bg-stone-100"
+          >
+            Log out
+          </button>
         </aside>
         <main className="flex-1">{children}</main>
       </div>
