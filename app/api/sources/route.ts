@@ -1,0 +1,64 @@
+import { NextResponse } from "next/server";
+import { Prisma, SourceType } from "@prisma/client";
+import { z } from "zod";
+import { createSourceRecord } from "@/lib/data";
+import { prisma } from "@/lib/prisma";
+import { extractBooksFromSource, normalizeSourceInput } from "@/lib/source-processing";
+
+const sourceSchema = z.object({
+  type: z.enum(["email", "web_link", "markdown"]),
+  title: z.string().optional(),
+  rawText: z.string().optional(),
+  url: z.string().url().optional(),
+  sourceFilename: z.string().optional(),
+  sourceMetadata: z.record(z.string(), z.unknown()).optional()
+});
+
+export async function POST(request: Request) {
+  const payload = sourceSchema.parse(await request.json());
+  const normalized = await normalizeSourceInput(payload);
+  const extracted = await extractBooksFromSource({
+    type: payload.type,
+    parsedText: normalized.parsedText || normalized.rawText,
+    metadata: normalized.metadata
+  });
+
+  const source = await createSourceRecord({
+    submittedByUserId: process.env.DEMO_USER_ID ?? "demo-user",
+    type: payload.type.toUpperCase() as SourceType,
+    title: payload.title || normalized.title,
+    rawText: normalized.rawText,
+    parsedText: normalized.parsedText,
+    sourceUrl: payload.url,
+    sourceFilename: payload.sourceFilename,
+    sourceMetadata: JSON.parse(
+      JSON.stringify({
+        ...normalized.metadata,
+        ...(payload.sourceMetadata ?? {})
+      })
+    ) as Prisma.InputJsonValue
+  });
+
+  await prisma.sourceExtraction.create({
+    data: {
+      sourceId: source.id,
+      modelProvider: extracted.modelProvider,
+      modelName: extracted.modelName,
+      extractionJson: {
+        recommender: extracted.recommender,
+        sourceSummary: extracted.sourceSummary,
+        books: extracted.books
+      },
+      confidence:
+        extracted.books.length > 0
+          ? extracted.books.reduce((sum, candidate) => sum + (candidate.confidence ?? 0.5), 0) / extracted.books.length
+          : 0
+    }
+  });
+
+  return NextResponse.json({
+    sourceId: source.id,
+    status: source.status,
+    extractedBooks: extracted.books.map(({ title, author }) => ({ title, author }))
+  });
+}

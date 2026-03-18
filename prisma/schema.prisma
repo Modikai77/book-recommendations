@@ -1,0 +1,304 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum SourceType {
+  EMAIL
+  WEB_LINK
+  MARKDOWN
+}
+
+enum SourceVisibility {
+  PRIVATE
+  APPROVED_SHARED
+  REJECTED
+}
+
+enum SourceStatus {
+  SUBMITTED
+  PARSED
+  NEEDS_REVIEW
+  APPROVED
+  REJECTED
+  FAILED
+}
+
+enum CatalogStatus {
+  PRIVATE_ONLY
+  SHARED
+}
+
+enum ListVisibility {
+  PRIVATE
+  SHARED_LINK
+}
+
+enum ListSystemType {
+  SAVED
+  READ
+  WANT_TO_READ
+  LIKED
+  DISLIKED
+}
+
+enum InteractionType {
+  VIEWED
+  SAVED
+  LIKED
+  DISLIKED
+  MARKED_READ
+  RECOMMENDED_CLICKED
+}
+
+enum ReviewDecision {
+  APPROVED
+  REJECTED
+  MERGED
+}
+
+model User {
+  id               String                @id @default(cuid())
+  name             String?
+  email            String?               @unique
+  emailVerified    DateTime?
+  image            String?
+  passwordHash     String?
+  role             UserRole              @default(USER)
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  profile          Profile?
+  accounts         Account[]
+  sessions         Session[]
+  sources          Source[]
+  lists            List[]
+  interactions     UserBookInteraction[]
+  recommendationQueries RecommendationQuery[]
+  adminReviews     AdminReview[]
+}
+
+model Profile {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  bio                String?
+  onboardingComplete Boolean  @default(false)
+  tasteSummary       String?
+  preferenceVector   Json?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Source {
+  id                String             @id @default(cuid())
+  submittedByUserId String
+  type              SourceType
+  visibility        SourceVisibility   @default(PRIVATE)
+  status            SourceStatus       @default(SUBMITTED)
+  title             String?
+  sourceUrl         String?
+  sourceFilename    String?
+  rawText           String
+  parsedText        String?
+  sourceMetadata    Json?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  submittedBy       User               @relation(fields: [submittedByUserId], references: [id], onDelete: Cascade)
+  extractions       SourceExtraction[]
+  mentions          RecommendationMention[]
+  reviews           AdminReview[]
+}
+
+model SourceExtraction {
+  id             String   @id @default(cuid())
+  sourceId       String
+  modelProvider  String
+  modelName      String
+  extractionJson Json
+  confidence     Float?
+  createdAt      DateTime @default(now())
+  source         Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+}
+
+model Book {
+  id               String                  @id @default(cuid())
+  title            String
+  author           String
+  subtitle         String?
+  canonicalSummary String?
+  publicationYear  Int?
+  isbn13           String?                 @unique
+  language         String?
+  coverImageUrl    String?
+  catalogStatus    CatalogStatus           @default(PRIVATE_ONLY)
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  metadata         BookMetadata?
+  tags             BookTag[]
+  mentions         RecommendationMention[]
+  listItems        ListItem[]
+  interactions     UserBookInteraction[]
+  results          RecommendationResult[]
+
+  @@unique([title, author])
+}
+
+model BookMetadata {
+  id             String   @id @default(cuid())
+  bookId         String   @unique
+  summary        String?
+  shortSummary   String?
+  tagsVersion    String?
+  audienceSignals Json?
+  readingTraits  Json?
+  embedding      Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  book           Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  label     String
+  category  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  books     BookTag[]
+}
+
+model BookTag {
+  id      String @id @default(cuid())
+  bookId  String
+  tagId   String
+  score   Float
+  source  String
+  book    Book   @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  tag     Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([bookId, tagId, source])
+}
+
+model RecommendationMention {
+  id                String   @id @default(cuid())
+  sourceId          String
+  bookId            String
+  mentionContext    String?
+  mentionSummary    String?
+  recommendedBy     String?
+  sentimentStrength Float?
+  createdAt         DateTime @default(now())
+  source            Source   @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  book              Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+}
+
+model List {
+  id         String         @id @default(cuid())
+  userId      String
+  name        String
+  visibility  ListVisibility @default(PRIVATE)
+  systemType  ListSystemType?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items       ListItem[]
+}
+
+model ListItem {
+  id        String   @id @default(cuid())
+  listId     String
+  bookId     String
+  notes      String?
+  position   Int?
+  createdAt  DateTime @default(now())
+  list       List     @relation(fields: [listId], references: [id], onDelete: Cascade)
+  book       Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, bookId])
+}
+
+model UserBookInteraction {
+  id              String          @id @default(cuid())
+  userId          String
+  bookId          String
+  interactionType InteractionType
+  strength        Float           @default(1)
+  createdAt       DateTime        @default(now())
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book            Book            @relation(fields: [bookId], references: [id], onDelete: Cascade)
+}
+
+model RecommendationQuery {
+  id                 String                 @id @default(cuid())
+  userId             String
+  rawQuery           String
+  interpretedQueryJson Json
+  createdAt          DateTime               @default(now())
+  user               User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  results            RecommendationResult[]
+}
+
+model RecommendationResult {
+  id        String              @id @default(cuid())
+  queryId   String
+  bookId    String
+  rank      Int
+  score     Float
+  reasonJson Json
+  query     RecommendationQuery @relation(fields: [queryId], references: [id], onDelete: Cascade)
+  book      Book                @relation(fields: [bookId], references: [id], onDelete: Cascade)
+}
+
+model AdminReview {
+  id             String         @id @default(cuid())
+  sourceId       String
+  reviewerUserId String
+  decision       ReviewDecision
+  notes          String?
+  createdAt      DateTime       @default(now())
+  source         Source         @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  reviewer       User           @relation(fields: [reviewerUserId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
