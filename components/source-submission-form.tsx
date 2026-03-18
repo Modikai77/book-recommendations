@@ -56,7 +56,8 @@ export function SourceSubmissionForm() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to submit source");
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(payload?.error || "Failed to submit source");
       }
 
       const payload = (await response.json()) as SubmissionResponse;

@@ -16,55 +16,66 @@ const sourceSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const sessionResult = await getRequiredSessionUser();
-  if ("error" in sessionResult) {
-    return sessionResult.error;
-  }
-
-  const payload = sourceSchema.parse(await request.json());
-  const normalized = await normalizeSourceInput(payload);
-  const extracted = await extractBooksFromSource({
-    type: payload.type,
-    parsedText: normalized.parsedText || normalized.rawText,
-    metadata: normalized.metadata
-  });
-
-  const source = await createSourceRecord({
-    submittedByUserId: sessionResult.user.id,
-    type: payload.type.toUpperCase() as SourceType,
-    title: payload.title || normalized.title,
-    rawText: normalized.rawText,
-    parsedText: normalized.parsedText,
-    sourceUrl: payload.url,
-    sourceFilename: payload.sourceFilename,
-    sourceMetadata: JSON.parse(
-      JSON.stringify({
-        ...normalized.metadata,
-        ...(payload.sourceMetadata ?? {})
-      })
-    ) as Prisma.InputJsonValue
-  });
-
-  await prisma.sourceExtraction.create({
-    data: {
-      sourceId: source.id,
-      modelProvider: extracted.modelProvider,
-      modelName: extracted.modelName,
-      extractionJson: {
-        recommender: extracted.recommender,
-        sourceSummary: extracted.sourceSummary,
-        books: extracted.books
-      },
-      confidence:
-        extracted.books.length > 0
-          ? extracted.books.reduce((sum, candidate) => sum + (candidate.confidence ?? 0.5), 0) / extracted.books.length
-          : 0
+  try {
+    const sessionResult = await getRequiredSessionUser();
+    if ("error" in sessionResult) {
+      return sessionResult.error;
     }
-  });
 
-  return NextResponse.json({
-    sourceId: source.id,
-    status: source.status,
-    extractedBooks: extracted.books.map(({ title, author }) => ({ title, author }))
-  });
+    const payload = sourceSchema.parse(await request.json());
+    const normalized = await normalizeSourceInput(payload);
+    const extracted = await extractBooksFromSource({
+      type: payload.type,
+      parsedText: normalized.parsedText || normalized.rawText,
+      metadata: normalized.metadata
+    });
+
+    const source = await createSourceRecord({
+      submittedByUserId: sessionResult.user.id,
+      type: payload.type.toUpperCase() as SourceType,
+      title: payload.title || normalized.title,
+      rawText: normalized.rawText,
+      parsedText: normalized.parsedText,
+      sourceUrl: payload.url,
+      sourceFilename: payload.sourceFilename,
+      sourceMetadata: JSON.parse(
+        JSON.stringify({
+          ...normalized.metadata,
+          ...(payload.sourceMetadata ?? {})
+        })
+      ) as Prisma.InputJsonValue
+    });
+
+    await prisma.sourceExtraction.create({
+      data: {
+        sourceId: source.id,
+        modelProvider: extracted.modelProvider,
+        modelName: extracted.modelName,
+        extractionJson: {
+          recommender: extracted.recommender,
+          sourceSummary: extracted.sourceSummary,
+          books: extracted.books
+        },
+        confidence:
+          extracted.books.length > 0
+            ? extracted.books.reduce((sum, candidate) => sum + (candidate.confidence ?? 0.5), 0) /
+              extracted.books.length
+            : 0
+      }
+    });
+
+    return NextResponse.json({
+      sourceId: source.id,
+      status: source.status,
+      extractedBooks: extracted.books.map(({ title, author }) => ({ title, author }))
+    });
+  } catch (error) {
+    console.error("Failed to submit source", error);
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Unknown submission error"
+      },
+      { status: 500 }
+    );
+  }
 }

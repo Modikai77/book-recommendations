@@ -1,7 +1,6 @@
-import { JSDOM } from "jsdom";
-import { Readability } from "@mozilla/readability";
-
 export async function fetchReadableContent(url: string) {
+  const [{ JSDOM }, { Readability }] = await Promise.all([import("jsdom"), import("@mozilla/readability")]);
+
   const response = await fetch(url, {
     headers: {
       "User-Agent": "BookRecommendationsBot/1.0"
