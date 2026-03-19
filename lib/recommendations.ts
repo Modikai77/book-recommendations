@@ -1,5 +1,6 @@
 import type { BookRecord, ParsedRecommendationQuery, RecommendationReason, UserTasteProfile } from "@/lib/types";
 import { defaultParsedQuery } from "@/lib/demo-data";
+import { getOpenAIClient } from "@/lib/openai";
 
 const genreKeywords = ["fiction", "nonfiction", "mystery", "speculative", "literary", "history", "memoir"];
 const toneKeywords = ["gentle", "funny", "dark", "reflective", "dreamlike", "fast", "quiet", "tender"];
@@ -24,6 +25,99 @@ export function parseRecommendationQuery(query: string): ParsedRecommendationQue
   parsed.semanticSummary = normalizedQuery;
 
   return parsed;
+}
+
+export async function parseRecommendationQueryWithAI(query: string): Promise<ParsedRecommendationQuery> {
+  const client = getOpenAIClient();
+  const fallback = parseRecommendationQuery(query);
+
+  if (!client) {
+    return fallback;
+  }
+
+  try {
+    const response = await client.responses.create({
+      model:
+        process.env.OPENAI_RECOMMENDATION_MODEL ??
+        process.env.OPENAI_EXTRACTION_MODEL ??
+        "gpt-4.1-mini",
+      input: [
+        {
+          role: "system",
+          content:
+            "You interpret book recommendation requests into structured retrieval intent. Normalize everything to lowercase. Keep lists concise and only include signals explicitly or strongly implicitly requested."
+        },
+        {
+          role: "user",
+          content: query
+        }
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "recommendation_query",
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              originalQuery: { type: "string" },
+              normalizedQuery: { type: "string" },
+              desiredGenres: {
+                type: "array",
+                items: { type: "string" }
+              },
+              desiredTones: {
+                type: "array",
+                items: { type: "string" }
+              },
+              desiredLengths: {
+                type: "array",
+                items: { type: "string" }
+              },
+              themes: {
+                type: "array",
+                items: { type: "string" }
+              },
+              exclusions: {
+                type: "array",
+                items: { type: "string" }
+              },
+              semanticSummary: { type: "string" }
+            },
+            required: [
+              "originalQuery",
+              "normalizedQuery",
+              "desiredGenres",
+              "desiredTones",
+              "desiredLengths",
+              "themes",
+              "exclusions",
+              "semanticSummary"
+            ]
+          }
+        }
+      }
+    });
+
+    const raw = response.output_text;
+    if (!raw) {
+      return fallback;
+    }
+
+    const parsed = JSON.parse(raw) as ParsedRecommendationQuery;
+    return {
+      originalQuery: parsed.originalQuery || query,
+      normalizedQuery: parsed.normalizedQuery || query.toLowerCase().trim(),
+      desiredGenres: (parsed.desiredGenres || []).map((item) => item.toLowerCase()),
+      desiredTones: (parsed.desiredTones || []).map((item) => item.toLowerCase()),
+      desiredLengths: (parsed.desiredLengths || []).map((item) => item.toLowerCase()),
+      themes: (parsed.themes || []).map((item) => item.toLowerCase()),
+      exclusions: (parsed.exclusions || []).map((item) => item.toLowerCase()),
+      semanticSummary: parsed.semanticSummary || query
+    };
+  } catch {
+    return fallback;
+  }
 }
 
 export function buildTasteProfile(userId: string, books: BookRecord[]): UserTasteProfile {
@@ -71,6 +165,31 @@ export function scoreBookForQuery(
     }
   }
 
+  for (const theme of query.themes) {
+    if (
+      book.tags?.includes(theme) ||
+      book.metadata?.readingTraits?.themes?.includes(theme) ||
+      book.metadata?.summary?.toLowerCase().includes(theme) ||
+      book.canonicalSummary?.toLowerCase().includes(theme)
+    ) {
+      score += 2;
+      signals.push(`Touches requested theme: ${theme}`);
+    }
+  }
+
+  for (const exclusion of query.exclusions) {
+    if (
+      book.tags?.includes(exclusion) ||
+      book.metadata?.readingTraits?.genre?.includes(exclusion) ||
+      book.metadata?.readingTraits?.tone?.includes(exclusion) ||
+      book.metadata?.summary?.toLowerCase().includes(exclusion) ||
+      book.canonicalSummary?.toLowerCase().includes(exclusion)
+    ) {
+      score -= 4;
+      signals.push(`Penalized for excluded element: ${exclusion}`);
+    }
+  }
+
   for (const tone of query.desiredTones) {
     if (book.metadata?.readingTraits?.tone?.includes(tone)) {
       score += 2;
@@ -114,11 +233,9 @@ export function scoreBookForQuery(
 
 export function rankRecommendations(
   books: BookRecord[],
-  queryInput: string,
+  parsedQuery: ParsedRecommendationQuery,
   tasteProfile?: UserTasteProfile
 ) {
-  const parsedQuery = parseRecommendationQuery(queryInput);
-
   return books
     .map((book) => {
       const { score, reason } = scoreBookForQuery(book, parsedQuery, tasteProfile);

@@ -12,7 +12,7 @@ describe("recommendations", () => {
   });
 
   it("ranks books that match user taste and query signals first", () => {
-    const ranked = rankRecommendations(demoBooks, "short reflective fiction", demoTasteProfile);
+    const ranked = rankRecommendations(demoBooks, parseRecommendationQuery("short reflective fiction"), demoTasteProfile);
 
     expect(ranked[0]?.book.title).toBe("Small Things Like These");
     expect(ranked[0]?.reason.summary).toContain("Matches requested genre");

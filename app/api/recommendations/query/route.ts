@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getTasteProfile, listBooksForUser } from "@/lib/data";
 import { prisma } from "@/lib/prisma";
-import { rankRecommendations } from "@/lib/recommendations";
+import { parseRecommendationQueryWithAI, rankRecommendations } from "@/lib/recommendations";
 import { getRequiredSessionUser } from "@/lib/session-user";
 
 const querySchema = z.object({
@@ -20,14 +20,15 @@ export async function POST(request: Request) {
   const userId = sessionResult.user.id;
   const books = await listBooksForUser(payload.includePrivate ? userId : undefined);
   const tasteProfile = await getTasteProfile(userId);
-  const ranked = rankRecommendations(books, payload.query, tasteProfile);
+  const parsedQuery = await parseRecommendationQueryWithAI(payload.query);
+  const ranked = rankRecommendations(books, parsedQuery, tasteProfile);
 
   try {
     const query = await prisma.recommendationQuery.create({
       data: {
         userId,
         rawQuery: payload.query,
-        interpretedQueryJson: ranked[0]?.parsedQuery ?? { query: payload.query }
+        interpretedQueryJson: parsedQuery
       }
     });
 
