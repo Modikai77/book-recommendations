@@ -21,8 +21,8 @@ type RecommendationItem = {
   };
 };
 
-export function RecommendationForm() {
-  const [query, setQuery] = useState("short fiction holiday read");
+export function RecommendationForm({ initialPrompt }: { initialPrompt?: string }) {
+  const [query, setQuery] = useState(initialPrompt || "short fiction holiday read");
   const [results, setResults] = useState<RecommendationItem[]>([]);
   const [loading, setLoading] = useState(false);
 

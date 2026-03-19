@@ -7,9 +7,12 @@ import type { BookRecord } from "@/lib/types";
 
 type Props = {
   books: BookRecord[];
+  initialQuery?: string;
+  initialSourceFilter?: string;
+  initialTagFilter?: string;
 };
 
-export function PrivateLibrary({ books }: Props) {
+export function PrivateLibrary({ books, initialQuery = "", initialSourceFilter = "all", initialTagFilter = "all" }: Props) {
   const router = useRouter();
   const [bookSummaries, setBookSummaries] = useState<Record<string, string>>(
     Object.fromEntries(
@@ -19,9 +22,9 @@ export function PrivateLibrary({ books }: Props) {
       ])
     )
   );
-  const [query, setQuery] = useState("");
-  const [sourceFilter, setSourceFilter] = useState("all");
-  const [tagFilter, setTagFilter] = useState("all");
+  const [query, setQuery] = useState(initialQuery);
+  const [sourceFilter, setSourceFilter] = useState(initialSourceFilter);
+  const [tagFilter, setTagFilter] = useState(initialTagFilter);
   const [pendingBookId, setPendingBookId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();

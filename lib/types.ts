@@ -81,3 +81,40 @@ export type BookRecord = {
   tags?: string[];
   catalogStatus?: "PRIVATE_ONLY" | "SHARED";
 };
+
+export type DashboardSourceItem = {
+  id: string;
+  title: string;
+  type: string;
+  status: string;
+  submittedAt: string;
+  extractedBookCount: number;
+};
+
+export type DashboardPromptSuggestion = {
+  label: string;
+  prompt: string;
+};
+
+export type DashboardAttentionItem = {
+  id: string;
+  kind: "missing_summary" | "empty_source" | "generic_summary";
+  title: string;
+  detail: string;
+  href: "/lists" | "/submit-source";
+};
+
+export type DashboardData = {
+  userName?: string | null;
+  privateBookCount: number;
+  sourceCount: number;
+  latestSourceDate?: string | null;
+  recentSources: DashboardSourceItem[];
+  recentBooks: BookRecord[];
+  topTags: Array<{ tag: string; count: number }>;
+  sourceBreakdown: Array<{ type: string; count: number }>;
+  booksAddedLast7Days: number;
+  suggestedPrompts: DashboardPromptSuggestion[];
+  attentionItems: DashboardAttentionItem[];
+  guidance: string;
+};

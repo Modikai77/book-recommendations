@@ -1,7 +1,13 @@
 import { RecommendationForm } from "@/components/recommendation-form";
 import { SiteShell } from "@/components/site-shell";
 
-export default function RecommendationsPage() {
+export default async function RecommendationsPage({
+  searchParams
+}: {
+  searchParams: Promise<{ prompt?: string }>;
+}) {
+  const { prompt } = await searchParams;
+
   return (
     <SiteShell>
       <section className="space-y-6">
@@ -13,7 +19,7 @@ export default function RecommendationsPage() {
             both request intent and the user’s taste profile.
           </p>
         </div>
-        <RecommendationForm />
+        <RecommendationForm initialPrompt={prompt} />
       </section>
     </SiteShell>
   );

@@ -4,13 +4,18 @@ import { SiteShell } from "@/components/site-shell";
 import { getCurrentSession } from "@/lib/auth";
 import { listPrivateLibraryForUser } from "@/lib/data";
 
-export default async function ListsPage() {
+export default async function ListsPage({
+  searchParams
+}: {
+  searchParams?: Promise<{ q?: string; source?: string; tag?: string }>;
+}) {
   const session = await getCurrentSession();
 
   if (!session?.user?.id) {
     redirect("/");
   }
 
+  const params = (await searchParams) ?? {};
   const books = await listPrivateLibraryForUser(session.user.id);
 
   return (
@@ -24,7 +29,12 @@ export default async function ListsPage() {
             source or tag, and review descriptions without waiting for admin approval.
           </p>
         </div>
-        <PrivateLibrary books={books} />
+        <PrivateLibrary
+          books={books}
+          initialQuery={params.q ?? ""}
+          initialSourceFilter={params.source ?? "all"}
+          initialTagFilter={params.tag ?? "all"}
+        />
       </section>
     </SiteShell>
   );
