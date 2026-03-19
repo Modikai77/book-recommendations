@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { Prisma, SourceType } from "@prisma/client";
 import { z } from "zod";
-import { createSourceRecord } from "@/lib/data";
+import { createSourceRecord, materializePrivateBooksForSource } from "@/lib/data";
 import { prisma } from "@/lib/prisma";
 import { getRequiredSessionUser } from "@/lib/session-user";
 import { extractBooksFromSource, normalizeSourceInput } from "@/lib/source-processing";
@@ -62,6 +62,14 @@ export async function POST(request: Request) {
               extracted.books.length
             : 0
       }
+    });
+
+    await materializePrivateBooksForSource({
+      sourceId: source.id,
+      sourceType: payload.type.toUpperCase() as SourceType,
+      sourceTitle: source.title,
+      recommender: extracted.recommender,
+      books: extracted.books
     });
 
     return NextResponse.json({

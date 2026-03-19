@@ -65,6 +65,9 @@ export type BookRecord = {
   title: string;
   author: string;
   canonicalSummary?: string | null;
+  sourceTitle?: string | null;
+  sourceType?: string | null;
+  submittedAt?: string | null;
   metadata?: {
     summary?: string | null;
     shortSummary?: string | null;

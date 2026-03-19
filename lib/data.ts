@@ -2,7 +2,8 @@ import { CatalogStatus, Prisma, SourceStatus, SourceType, SourceVisibility } fro
 import { demoBooks, demoTasteProfile } from "@/lib/demo-data";
 import { prisma } from "@/lib/prisma";
 import { buildTasteProfile } from "@/lib/recommendations";
-import type { BookReadingTraits, BookRecord, UserTasteProfile } from "@/lib/types";
+import { slugify } from "@/lib/utils";
+import type { BookReadingTraits, BookRecord, ExtractedBookCandidate, UserTasteProfile } from "@/lib/types";
 
 export async function listBooksForUser(userId?: string): Promise<BookRecord[]> {
   try {
@@ -17,6 +18,13 @@ export async function listBooksForUser(userId?: string): Promise<BookRecord[]> {
         : { catalogStatus: CatalogStatus.SHARED },
       include: {
         metadata: true,
+        mentions: {
+          include: {
+            source: true
+          },
+          orderBy: { createdAt: "desc" },
+          take: 1
+        },
         tags: {
           include: {
             tag: true
@@ -31,6 +39,9 @@ export async function listBooksForUser(userId?: string): Promise<BookRecord[]> {
       title: book.title,
       author: book.author,
       canonicalSummary: book.canonicalSummary,
+      sourceTitle: book.mentions[0]?.source.title ?? null,
+      sourceType: book.mentions[0]?.source.type ?? null,
+      submittedAt: book.mentions[0]?.source.createdAt.toISOString() ?? null,
       metadata: {
         summary: book.metadata?.summary,
         shortSummary: book.metadata?.shortSummary,
@@ -132,4 +143,163 @@ export async function createSourceRecord(input: {
       status: SourceStatus.NEEDS_REVIEW
     }
   });
+}
+
+export async function materializePrivateBooksForSource(input: {
+  sourceId: string;
+  sourceType: SourceType;
+  sourceTitle?: string | null;
+  recommender?: string | null;
+  books: ExtractedBookCandidate[];
+}) {
+  for (const candidate of input.books) {
+    const book = await prisma.book.upsert({
+      where: {
+        title_author: {
+          title: candidate.title,
+          author: candidate.author
+        }
+      },
+      update: {
+        canonicalSummary: candidate.rationale || candidate.snippet || undefined
+      },
+      create: {
+        title: candidate.title,
+        author: candidate.author,
+        canonicalSummary: candidate.rationale || candidate.snippet || undefined,
+        catalogStatus: CatalogStatus.PRIVATE_ONLY,
+        metadata: {
+          create: {
+            summary: candidate.rationale || candidate.snippet || undefined,
+            shortSummary: candidate.rationale || candidate.snippet || undefined
+          }
+        }
+      },
+      include: {
+        metadata: true
+      }
+    });
+
+    if (book.metadata) {
+      await prisma.bookMetadata.update({
+        where: { bookId: book.id },
+        data: {
+          summary: book.metadata.summary || candidate.rationale || candidate.snippet || undefined,
+          shortSummary: book.metadata.shortSummary || candidate.rationale || candidate.snippet || undefined
+        }
+      });
+    }
+
+    const existingMention = await prisma.recommendationMention.findFirst({
+      where: {
+        sourceId: input.sourceId,
+        bookId: book.id
+      }
+    });
+
+    if (!existingMention) {
+      await prisma.recommendationMention.create({
+        data: {
+          sourceId: input.sourceId,
+          bookId: book.id,
+          mentionContext: candidate.snippet,
+          mentionSummary: candidate.rationale,
+          recommendedBy: input.recommender || undefined
+        }
+      });
+    }
+
+    for (const rawTag of candidate.tags ?? []) {
+      const label = rawTag.trim();
+      if (!label) {
+        continue;
+      }
+
+      const tag = await prisma.tag.upsert({
+        where: { slug: slugify(label) },
+        update: { label },
+        create: {
+          slug: slugify(label),
+          label,
+          category: "extracted"
+        }
+      });
+
+      await prisma.bookTag.upsert({
+        where: {
+          bookId_tagId_source: {
+            bookId: book.id,
+            tagId: tag.id,
+            source: "llm"
+          }
+        },
+        update: {
+          score: candidate.confidence ?? 0.5
+        },
+        create: {
+          bookId: book.id,
+          tagId: tag.id,
+          source: "llm",
+          score: candidate.confidence ?? 0.5
+        }
+      });
+    }
+  }
+}
+
+export async function listPrivateLibraryForUser(userId: string): Promise<BookRecord[]> {
+  try {
+    const books = await prisma.book.findMany({
+      where: {
+        mentions: {
+          some: {
+            source: {
+              submittedByUserId: userId
+            }
+          }
+        }
+      },
+      include: {
+        metadata: true,
+        mentions: {
+          include: {
+            source: true
+          },
+          where: {
+            source: {
+              submittedByUserId: userId
+            }
+          },
+          orderBy: { createdAt: "desc" },
+          take: 1
+        },
+        tags: {
+          include: {
+            tag: true
+          }
+        }
+      },
+      orderBy: { updatedAt: "desc" }
+    });
+
+    return books.map((book) => ({
+      id: book.id,
+      title: book.title,
+      author: book.author,
+      canonicalSummary: book.canonicalSummary,
+      sourceTitle: book.mentions[0]?.source.title ?? null,
+      sourceType: book.mentions[0]?.source.type ?? null,
+      submittedAt: book.mentions[0]?.source.createdAt.toISOString() ?? null,
+      metadata: {
+        summary: book.metadata?.summary,
+        shortSummary: book.metadata?.shortSummary,
+        readingTraits: (book.metadata?.readingTraits as BookReadingTraits | null) ?? undefined,
+        tags: book.tags.map((entry) => entry.tag.label)
+      },
+      tags: book.tags.map((entry) => entry.tag.label),
+      catalogStatus: book.catalogStatus
+    }));
+  } catch {
+    return demoBooks;
+  }
 }
