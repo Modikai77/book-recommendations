@@ -7,17 +7,17 @@ import type { ExtractedBookCandidate, SourceType } from "@/lib/types";
 const extractedBookSchema = z.object({
   title: z.string(),
   author: z.string(),
-  bookSummary: z.string().optional(),
-  confidence: z.number().optional(),
-  snippet: z.string().optional(),
-  rationale: z.string().optional(),
-  sourceSection: z.string().optional(),
-  tags: z.array(z.string()).optional()
+  bookSummary: z.string().nullable().optional(),
+  confidence: z.number().nullable().optional(),
+  snippet: z.string().nullable().optional(),
+  rationale: z.string().nullable().optional(),
+  sourceSection: z.string().nullable().optional(),
+  tags: z.array(z.string()).nullable().optional()
 });
 
 const extractedPayloadSchema = z.object({
-  recommender: z.string().optional(),
-  sourceSummary: z.string().optional(),
+  recommender: z.string().nullable().optional(),
+  sourceSummary: z.string().nullable().optional(),
   books: z.array(extractedBookSchema)
 });
 
@@ -185,11 +185,21 @@ export async function extractBooksFromSource(input: {
   }
 
   const parsed = extractedPayloadSchema.parse(JSON.parse(rawOutput));
+  const normalizedBooks: ExtractedBookCandidate[] = parsed.books.map((book) => ({
+    title: book.title,
+    author: book.author,
+    bookSummary: book.bookSummary ?? undefined,
+    confidence: book.confidence ?? undefined,
+    snippet: book.snippet ?? undefined,
+    rationale: book.rationale ?? undefined,
+    sourceSection: book.sourceSection ?? undefined,
+    tags: book.tags ?? undefined
+  }));
 
   return {
-    recommender: parsed.recommender,
-    sourceSummary: parsed.sourceSummary,
-    books: parsed.books.length > 0 ? parsed.books : fallback,
+    recommender: parsed.recommender ?? undefined,
+    sourceSummary: parsed.sourceSummary ?? undefined,
+    books: normalizedBooks.length > 0 ? normalizedBooks : fallback,
     modelProvider: "openai",
     modelName: completion.model
   };
