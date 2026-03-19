@@ -161,17 +161,17 @@ export async function materializePrivateBooksForSource(input: {
         }
       },
       update: {
-        canonicalSummary: candidate.rationale || candidate.snippet || undefined
+        canonicalSummary: candidate.bookSummary || candidate.rationale || candidate.snippet || undefined
       },
       create: {
         title: candidate.title,
         author: candidate.author,
-        canonicalSummary: candidate.rationale || candidate.snippet || undefined,
+        canonicalSummary: candidate.bookSummary || candidate.rationale || candidate.snippet || undefined,
         catalogStatus: CatalogStatus.PRIVATE_ONLY,
         metadata: {
           create: {
-            summary: candidate.rationale || candidate.snippet || undefined,
-            shortSummary: candidate.rationale || candidate.snippet || undefined
+            summary: candidate.bookSummary || candidate.rationale || candidate.snippet || undefined,
+            shortSummary: candidate.bookSummary || candidate.rationale || candidate.snippet || undefined
           }
         }
       },
@@ -184,8 +184,10 @@ export async function materializePrivateBooksForSource(input: {
       await prisma.bookMetadata.update({
         where: { bookId: book.id },
         data: {
-          summary: book.metadata.summary || candidate.rationale || candidate.snippet || undefined,
-          shortSummary: book.metadata.shortSummary || candidate.rationale || candidate.snippet || undefined
+          summary:
+            candidate.bookSummary || book.metadata.summary || candidate.rationale || candidate.snippet || undefined,
+          shortSummary:
+            candidate.bookSummary || book.metadata.shortSummary || candidate.rationale || candidate.snippet || undefined
         }
       });
     }

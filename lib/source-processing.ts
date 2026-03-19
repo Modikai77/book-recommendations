@@ -7,6 +7,7 @@ import type { ExtractedBookCandidate, SourceType } from "@/lib/types";
 const extractedBookSchema = z.object({
   title: z.string(),
   author: z.string(),
+  bookSummary: z.string().optional(),
   confidence: z.number().optional(),
   snippet: z.string().optional(),
   rationale: z.string().optional(),
@@ -192,4 +193,124 @@ export async function extractBooksFromSource(input: {
     modelProvider: "openai",
     modelName: completion.model
   };
+}
+
+const summaryItemSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  author: z.string(),
+  summary: z.string()
+});
+
+const summaryPayloadSchema = z.object({
+  books: z.array(summaryItemSchema)
+});
+
+function fallbackBookSummary(candidate: ExtractedBookCandidate) {
+  return (
+    candidate.bookSummary ||
+    candidate.rationale ||
+    candidate.snippet ||
+    `${candidate.title} by ${candidate.author}.`
+  );
+}
+
+export async function enrichBookSummaries(input: {
+  parsedText: string;
+  sourceTitle?: string;
+  recommender?: string;
+  books: ExtractedBookCandidate[];
+}) {
+  if (!input.books.length) {
+    return input.books;
+  }
+
+  const client = getOpenAIClient();
+  if (!client) {
+    return input.books.map((book) => ({
+      ...book,
+      bookSummary: fallbackBookSummary(book)
+    }));
+  }
+
+  try {
+    const response = await client.responses.create({
+      model:
+        process.env.OPENAI_SUMMARY_MODEL ??
+        process.env.OPENAI_EXTRACTION_MODEL ??
+        "gpt-4.1-mini",
+      tools: [{ type: "web_search" }],
+      tool_choice: "auto",
+      input: [
+        {
+          role: "system",
+          content:
+            "Write a concise 1-2 sentence summary for each listed book. Use the source text when sufficient. If the source text does not explain the book, use web search to verify and fill the gap. Do not invent details."
+        },
+        {
+          role: "user",
+          content: JSON.stringify({
+            sourceTitle: input.sourceTitle,
+            recommender: input.recommender,
+            parsedText: input.parsedText,
+            books: input.books.map((book, index) => ({
+              id: String(index),
+              title: book.title,
+              author: book.author,
+              snippet: book.snippet,
+              rationale: book.rationale
+            }))
+          })
+        }
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "book_summaries",
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              books: {
+                type: "array",
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    id: { type: "string" },
+                    title: { type: "string" },
+                    author: { type: "string" },
+                    summary: { type: "string" }
+                  },
+                  required: ["id", "title", "author", "summary"]
+                }
+              }
+            },
+            required: ["books"]
+          }
+        }
+      }
+    });
+
+    const rawOutput = response.output_text;
+    if (!rawOutput) {
+      return input.books.map((book) => ({
+        ...book,
+        bookSummary: fallbackBookSummary(book)
+      }));
+    }
+
+    const parsed = summaryPayloadSchema.parse(JSON.parse(rawOutput));
+    const summaryById = new Map(parsed.books.map((book) => [book.id, book.summary]));
+
+    return input.books.map((book, index) => ({
+      ...book,
+      bookSummary: summaryById.get(String(index)) || fallbackBookSummary(book)
+    }));
+  } catch {
+    return input.books.map((book) => ({
+      ...book,
+      bookSummary: fallbackBookSummary(book)
+    }));
+  }
 }

@@ -3,6 +3,7 @@ export type SourceType = "email" | "web_link" | "markdown";
 export type ExtractedBookCandidate = {
   title: string;
   author: string;
+  bookSummary?: string;
   confidence?: number;
   snippet?: string;
   rationale?: string;
