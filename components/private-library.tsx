@@ -11,6 +11,14 @@ type Props = {
 
 export function PrivateLibrary({ books }: Props) {
   const router = useRouter();
+  const [bookSummaries, setBookSummaries] = useState<Record<string, string>>(
+    Object.fromEntries(
+      books.map((book) => [
+        book.id,
+        book.metadata?.summary || book.metadata?.shortSummary || book.canonicalSummary || "No summary yet."
+      ])
+    )
+  );
   const [query, setQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [tagFilter, setTagFilter] = useState("all");
@@ -54,11 +62,17 @@ export function PrivateLibrary({ books }: Props) {
           method: "POST"
         });
 
-        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        const payload = (await response.json().catch(() => null)) as { error?: string; summary?: string } | null;
         if (!response.ok) {
           throw new Error(payload?.error || "Failed to redo summary");
         }
 
+        if (payload?.summary) {
+          setBookSummaries((current) => ({
+            ...current,
+            [bookId]: payload.summary as string
+          }));
+        }
         router.refresh();
       } catch (requestError) {
         setError(requestError instanceof Error ? requestError.message : "Failed to redo summary");
@@ -130,7 +144,7 @@ export function PrivateLibrary({ books }: Props) {
               ) : null}
             </div>
             <p className="mt-4 text-sm leading-6 text-stone-700">
-              {book.metadata?.summary || book.metadata?.shortSummary || book.canonicalSummary || "No summary yet."}
+              {bookSummaries[book.id] || "No summary yet."}
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               {(book.tags || []).map((tag) => (

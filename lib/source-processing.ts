@@ -357,36 +357,72 @@ export async function regenerateSingleBookSummary(input: {
   snippet?: string;
   rationale?: string;
 }) {
-  const [enriched] = await enrichBookSummaries({
-    parsedText: input.parsedText,
-    sourceTitle: input.sourceTitle,
-    recommender: input.recommender,
-    books: [
+  const client = getOpenAIClient();
+  if (!client) {
+    throw new Error("OPENAI_API_KEY is not configured");
+  }
+
+  const response = await client.responses.create({
+    model:
+      process.env.OPENAI_SUMMARY_MODEL ??
+      process.env.OPENAI_EXTRACTION_MODEL ??
+      "gpt-4.1-mini",
+    tools: [{ type: "web_search" }],
+    tool_choice: "auto",
+    input: [
       {
-        title: input.title,
-        author: input.author,
-        snippet: input.snippet,
-        rationale: input.rationale
+        role: "system",
+        content:
+          "Write a fresh 1-2 sentence book summary. Prefer verified book-level information. Use web search when needed. Do not repeat the source recommendation blurb unless it contains uniquely useful context. Return JSON only."
+      },
+      {
+        role: "user",
+        content: JSON.stringify({
+          title: input.title,
+          author: input.author,
+          sourceTitle: input.sourceTitle,
+          recommender: input.recommender,
+          sourceSnippet: input.snippet,
+          sourceRationale: input.rationale,
+          sourceText: input.parsedText
+        })
       }
-    ]
+    ],
+    text: {
+      format: {
+        type: "json_schema",
+        name: "single_book_summary",
+        schema: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            summary: { type: "string" }
+          },
+          required: ["summary"]
+        }
+      }
+    }
   });
+
+  const rawOutput = response.output_text;
+  if (!rawOutput) {
+    throw new Error("No summary returned from OpenAI");
+  }
+
+  const parsed = z.object({ summary: z.string().min(20) }).parse(JSON.parse(rawOutput));
 
   const [embedded] = await enrichBookEmbeddings([
     {
       title: input.title,
       author: input.author,
-      bookSummary: enriched?.bookSummary,
+      bookSummary: parsed.summary,
       snippet: input.snippet,
       rationale: input.rationale
     }
   ]);
 
   return {
-    summary:
-      enriched?.bookSummary ||
-      input.rationale ||
-      input.snippet ||
-      `${input.title} by ${input.author}.`,
+    summary: parsed.summary,
     embedding: embedded?.embedding
   };
 }
