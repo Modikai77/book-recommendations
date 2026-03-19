@@ -42,6 +42,7 @@ export async function listBooksForUser(userId?: string): Promise<BookRecord[]> {
       sourceTitle: book.mentions[0]?.source.title ?? null,
       sourceType: book.mentions[0]?.source.type ?? null,
       submittedAt: book.mentions[0]?.source.createdAt.toISOString() ?? null,
+      embedding: (book.metadata?.embedding as number[] | null) ?? undefined,
       metadata: {
         summary: book.metadata?.summary,
         shortSummary: book.metadata?.shortSummary,
@@ -104,6 +105,7 @@ export async function getTasteProfile(userId?: string): Promise<UserTasteProfile
         title: book.title,
         author: book.author,
         canonicalSummary: book.canonicalSummary,
+        embedding: (book.metadata?.embedding as number[] | null) ?? undefined,
         metadata: {
           summary: book.metadata?.summary,
           shortSummary: book.metadata?.shortSummary,
@@ -171,7 +173,8 @@ export async function materializePrivateBooksForSource(input: {
         metadata: {
           create: {
             summary: candidate.bookSummary || candidate.rationale || candidate.snippet || undefined,
-            shortSummary: candidate.bookSummary || candidate.rationale || candidate.snippet || undefined
+            shortSummary: candidate.bookSummary || candidate.rationale || candidate.snippet || undefined,
+            embedding: candidate.embedding ?? undefined
           }
         }
       },
@@ -187,7 +190,8 @@ export async function materializePrivateBooksForSource(input: {
           summary:
             candidate.bookSummary || book.metadata.summary || candidate.rationale || candidate.snippet || undefined,
           shortSummary:
-            candidate.bookSummary || book.metadata.shortSummary || candidate.rationale || candidate.snippet || undefined
+            candidate.bookSummary || book.metadata.shortSummary || candidate.rationale || candidate.snippet || undefined,
+          embedding: candidate.embedding ?? (book.metadata.embedding as Prisma.InputJsonValue | undefined) ?? undefined
         }
       });
     }
@@ -292,6 +296,7 @@ export async function listPrivateLibraryForUser(userId: string): Promise<BookRec
       sourceTitle: book.mentions[0]?.source.title ?? null,
       sourceType: book.mentions[0]?.source.type ?? null,
       submittedAt: book.mentions[0]?.source.createdAt.toISOString() ?? null,
+      embedding: (book.metadata?.embedding as number[] | null) ?? undefined,
       metadata: {
         summary: book.metadata?.summary,
         shortSummary: book.metadata?.shortSummary,

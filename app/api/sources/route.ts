@@ -4,7 +4,7 @@ import { z } from "zod";
 import { createSourceRecord, materializePrivateBooksForSource } from "@/lib/data";
 import { prisma } from "@/lib/prisma";
 import { getRequiredSessionUser } from "@/lib/session-user";
-import { enrichBookSummaries, extractBooksFromSource, normalizeSourceInput } from "@/lib/source-processing";
+import { enrichBookEmbeddings, enrichBookSummaries, extractBooksFromSource, normalizeSourceInput } from "@/lib/source-processing";
 
 const sourceSchema = z.object({
   type: z.enum(["email", "web_link", "markdown"]),
@@ -35,6 +35,7 @@ export async function POST(request: Request) {
       recommender: extracted.recommender,
       books: extracted.books
     });
+    const embeddedBooks = await enrichBookEmbeddings(enrichedBooks);
 
     const source = await createSourceRecord({
       submittedByUserId: sessionResult.user.id,
@@ -61,12 +62,12 @@ export async function POST(request: Request) {
         extractionJson: {
           recommender: extracted.recommender,
           sourceSummary: extracted.sourceSummary,
-          books: enrichedBooks
+          books: embeddedBooks
         },
         confidence:
-          enrichedBooks.length > 0
-            ? enrichedBooks.reduce((sum, candidate) => sum + (candidate.confidence ?? 0.5), 0) /
-              enrichedBooks.length
+          embeddedBooks.length > 0
+            ? embeddedBooks.reduce((sum, candidate) => sum + (candidate.confidence ?? 0.5), 0) /
+              embeddedBooks.length
             : 0
       }
     });
@@ -76,13 +77,13 @@ export async function POST(request: Request) {
       sourceType: payload.type.toUpperCase() as SourceType,
       sourceTitle: source.title,
       recommender: extracted.recommender,
-      books: enrichedBooks
+      books: embeddedBooks
     });
 
     return NextResponse.json({
       sourceId: source.id,
       status: source.status,
-      extractedBooks: enrichedBooks.map(({ title, author, bookSummary }) => ({ title, author, bookSummary }))
+      extractedBooks: embeddedBooks.map(({ title, author, bookSummary }) => ({ title, author, bookSummary }))
     });
   } catch (error) {
     console.error("Failed to submit source", error);

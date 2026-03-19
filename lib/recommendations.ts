@@ -124,6 +124,7 @@ export function buildTasteProfile(userId: string, books: BookRecord[]): UserTast
   const genres = new Set<string>();
   const tones = new Set<string>();
   const lengths = new Set<string>();
+  const vectors = books.map((book) => book.embedding).filter((vector): vector is number[] => Boolean(vector?.length));
 
   for (const book of books) {
     for (const genre of book.metadata?.readingTraits?.genre ?? []) {
@@ -146,17 +147,70 @@ export function buildTasteProfile(userId: string, books: BookRecord[]): UserTast
     dislikedGenres: [],
     preferredTones: [...tones],
     preferredLengths: [...lengths],
-    summary: `Prefers ${[...lengths].join(", ") || "varied"} reads with ${[...tones].join(", ") || "mixed"} tone.`
+    summary: `Prefers ${[...lengths].join(", ") || "varied"} reads with ${[...tones].join(", ") || "mixed"} tone.`,
+    preferenceVector: averageVectors(vectors)
   };
+}
+
+function cosineSimilarity(left?: number[], right?: number[]) {
+  if (!left?.length || !right?.length || left.length !== right.length) {
+    return 0;
+  }
+
+  let dot = 0;
+  let leftNorm = 0;
+  let rightNorm = 0;
+
+  for (let i = 0; i < left.length; i += 1) {
+    dot += left[i] * right[i];
+    leftNorm += left[i] * left[i];
+    rightNorm += right[i] * right[i];
+  }
+
+  if (!leftNorm || !rightNorm) {
+    return 0;
+  }
+
+  return dot / (Math.sqrt(leftNorm) * Math.sqrt(rightNorm));
+}
+
+function averageVectors(vectors: number[][]) {
+  if (!vectors.length) {
+    return undefined;
+  }
+
+  const length = vectors[0].length;
+  const total = new Array<number>(length).fill(0);
+
+  for (const vector of vectors) {
+    if (vector.length !== length) {
+      continue;
+    }
+
+    for (let i = 0; i < length; i += 1) {
+      total[i] += vector[i];
+    }
+  }
+
+  return total.map((value) => value / vectors.length);
 }
 
 export function scoreBookForQuery(
   book: BookRecord,
   query: ParsedRecommendationQuery,
-  tasteProfile?: UserTasteProfile
+  tasteProfile?: UserTasteProfile,
+  queryVector?: number[]
 ) {
   let score = 0;
   const signals: string[] = [];
+
+  const semanticSimilarity = cosineSimilarity(queryVector, book.embedding);
+  if (semanticSimilarity > 0) {
+    score += semanticSimilarity * 6;
+    if (semanticSimilarity > 0.2) {
+      signals.push("Strong semantic match to your request.");
+    }
+  }
 
   for (const genre of query.desiredGenres) {
     if (book.tags?.includes(genre) || book.metadata?.readingTraits?.genre?.includes(genre)) {
@@ -205,6 +259,11 @@ export function scoreBookForQuery(
   }
 
   if (tasteProfile) {
+    const tasteSimilarity = cosineSimilarity(tasteProfile.preferenceVector, book.embedding);
+    if (tasteSimilarity > 0) {
+      score += tasteSimilarity * 3;
+    }
+
     for (const genre of tasteProfile.likedGenres) {
       if (book.metadata?.readingTraits?.genre?.includes(genre)) {
         score += 1.5;
@@ -234,11 +293,12 @@ export function scoreBookForQuery(
 export function rankRecommendations(
   books: BookRecord[],
   parsedQuery: ParsedRecommendationQuery,
-  tasteProfile?: UserTasteProfile
+  tasteProfile?: UserTasteProfile,
+  queryVector?: number[]
 ) {
   return books
     .map((book) => {
-      const { score, reason } = scoreBookForQuery(book, parsedQuery, tasteProfile);
+      const { score, reason } = scoreBookForQuery(book, parsedQuery, tasteProfile, queryVector);
 
       return { book, score, reason, parsedQuery };
     })

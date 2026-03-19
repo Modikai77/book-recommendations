@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { fetchReadableContent } from "@/lib/content-fetch";
 import { normalizeObsidianMarkdown } from "@/lib/markdown";
-import { getOpenAIClient } from "@/lib/openai";
+import { createEmbeddings, getOpenAIClient } from "@/lib/openai";
 import type { ExtractedBookCandidate, SourceType } from "@/lib/types";
 
 const extractedBookSchema = z.object({
@@ -312,5 +312,28 @@ export async function enrichBookSummaries(input: {
       ...book,
       bookSummary: fallbackBookSummary(book)
     }));
+  }
+}
+
+export async function enrichBookEmbeddings(books: ExtractedBookCandidate[]) {
+  if (!books.length) {
+    return books;
+  }
+
+  try {
+    const embeddings = await createEmbeddings(
+      books.map((book) =>
+        [book.title, book.author, book.bookSummary || book.rationale || book.snippet]
+          .filter(Boolean)
+          .join(". ")
+      )
+    );
+
+    return books.map((book, index) => ({
+      ...book,
+      embedding: embeddings[index] ?? undefined
+    }));
+  } catch {
+    return books;
   }
 }

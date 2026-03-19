@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getTasteProfile, listBooksForUser } from "@/lib/data";
+import { createEmbeddings } from "@/lib/openai";
 import { prisma } from "@/lib/prisma";
 import { parseRecommendationQueryWithAI, rankRecommendations } from "@/lib/recommendations";
 import { getRequiredSessionUser } from "@/lib/session-user";
@@ -21,7 +22,8 @@ export async function POST(request: Request) {
   const books = await listBooksForUser(payload.includePrivate ? userId : undefined);
   const tasteProfile = await getTasteProfile(userId);
   const parsedQuery = await parseRecommendationQueryWithAI(payload.query);
-  const ranked = rankRecommendations(books, parsedQuery, tasteProfile);
+  const [queryVector] = await createEmbeddings([parsedQuery.semanticSummary || payload.query]);
+  const ranked = rankRecommendations(books, parsedQuery, tasteProfile, queryVector);
 
   try {
     const query = await prisma.recommendationQuery.create({

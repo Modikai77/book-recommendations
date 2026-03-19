@@ -4,6 +4,7 @@ export type ExtractedBookCandidate = {
   title: string;
   author: string;
   bookSummary?: string;
+  embedding?: number[];
   confidence?: number;
   snippet?: string;
   rationale?: string;
@@ -49,6 +50,7 @@ export type UserTasteProfile = {
   preferredTones: string[];
   preferredLengths: string[];
   summary: string;
+  preferenceVector?: number[];
 };
 
 export type ParsedMarkdownSource = {
@@ -69,6 +71,7 @@ export type BookRecord = {
   sourceTitle?: string | null;
   sourceType?: string | null;
   submittedAt?: string | null;
+  embedding?: number[];
   metadata?: {
     summary?: string | null;
     shortSummary?: string | null;
