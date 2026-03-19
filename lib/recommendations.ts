@@ -5,6 +5,29 @@ import { getOpenAIClient } from "@/lib/openai";
 const genreKeywords = ["fiction", "nonfiction", "mystery", "speculative", "literary", "history", "memoir"];
 const toneKeywords = ["gentle", "funny", "dark", "reflective", "dreamlike", "fast", "quiet", "tender"];
 const lengthKeywords = ["short", "medium", "long"];
+const stopWords = new Set([
+  "a",
+  "an",
+  "and",
+  "are",
+  "as",
+  "at",
+  "books",
+  "for",
+  "from",
+  "in",
+  "impact",
+  "it",
+  "kind",
+  "of",
+  "on",
+  "or",
+  "right",
+  "the",
+  "to",
+  "want",
+  "with"
+]);
 
 export function parseRecommendationQuery(query: string): ParsedRecommendationQuery {
   const normalizedQuery = query.toLowerCase().trim();
@@ -195,6 +218,17 @@ function averageVectors(vectors: number[][]) {
   return total.map((value) => value / vectors.length);
 }
 
+function tokenize(value: string | undefined | null) {
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length > 2 && !stopWords.has(token));
+}
+
 export function scoreBookForQuery(
   book: BookRecord,
   query: ParsedRecommendationQuery,
@@ -203,6 +237,13 @@ export function scoreBookForQuery(
 ) {
   let score = 0;
   const signals: string[] = [];
+  const queryTokens = tokenize(query.semanticSummary);
+  const titleTokens = new Set(tokenize(book.title));
+  const tagTokens = new Set((book.tags || []).flatMap((tag) => tokenize(tag)));
+  const summaryTokens = new Set(tokenize(book.metadata?.summary || book.metadata?.shortSummary || book.canonicalSummary));
+  const overlappingTitleTokens = queryTokens.filter((token) => titleTokens.has(token));
+  const overlappingTagTokens = queryTokens.filter((token) => tagTokens.has(token));
+  const overlappingSummaryTokens = queryTokens.filter((token) => summaryTokens.has(token));
 
   const semanticSimilarity = cosineSimilarity(queryVector, book.embedding);
   if (semanticSimilarity > 0) {
@@ -214,11 +255,27 @@ export function scoreBookForQuery(
 
   for (const genre of query.desiredGenres) {
     if (book.tags?.includes(genre) || book.metadata?.readingTraits?.genre?.includes(genre)) {
-      score += 3;
+      score += 2;
       signals.push(`Matches requested genre: ${genre}`);
     }
   }
 
+  if (overlappingTagTokens.length) {
+    score += overlappingTagTokens.length * 5;
+    signals.push(`Direct topical tag match: ${overlappingTagTokens.join(", ")}`);
+  }
+
+  if (overlappingTitleTokens.length) {
+    score += overlappingTitleTokens.length * 4;
+    signals.push(`Title matches query terms: ${overlappingTitleTokens.join(", ")}`);
+  }
+
+  if (overlappingSummaryTokens.length) {
+    score += Math.min(overlappingSummaryTokens.length, 3) * 2;
+    signals.push(`Summary overlaps with query terms: ${overlappingSummaryTokens.join(", ")}`);
+  }
+
+  let matchedTheme = false;
   for (const theme of query.themes) {
     if (
       book.tags?.includes(theme) ||
@@ -226,9 +283,14 @@ export function scoreBookForQuery(
       book.metadata?.summary?.toLowerCase().includes(theme) ||
       book.canonicalSummary?.toLowerCase().includes(theme)
     ) {
-      score += 2;
+      score += 4;
+      matchedTheme = true;
       signals.push(`Touches requested theme: ${theme}`);
     }
+  }
+
+  if (query.themes.length > 0 && !matchedTheme && !overlappingTagTokens.length && !overlappingTitleTokens.length) {
+    score -= 3;
   }
 
   for (const exclusion of query.exclusions) {
