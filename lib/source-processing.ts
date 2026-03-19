@@ -139,8 +139,8 @@ export async function extractBooksFromSource(input: {
           type: "object",
           additionalProperties: false,
           properties: {
-            recommender: { type: "string" },
-            sourceSummary: { type: "string" },
+            recommender: { type: ["string", "null"] },
+            sourceSummary: { type: ["string", "null"] },
             books: {
               type: "array",
               items: {
@@ -167,7 +167,7 @@ export async function extractBooksFromSource(input: {
               }
             }
           },
-          required: ["books"]
+          required: ["recommender", "sourceSummary", "books"]
         }
       }
     }
