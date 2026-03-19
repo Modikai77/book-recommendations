@@ -17,7 +17,7 @@ export default function HomePage() {
             </p>
             <div className="mt-8 flex flex-wrap gap-4">
               <Link href="/dashboard" className="rounded-full bg-stone-900 px-6 py-3 text-sm font-medium text-white">
-                Enter app
+                <span className="text-white">Enter app</span>
               </Link>
               <Link href="/submit-source" className="rounded-full border border-stone-300 px-6 py-3 text-sm font-medium">
                 Submit a source
