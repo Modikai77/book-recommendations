@@ -347,3 +347,46 @@ export async function enrichBookEmbeddings(books: ExtractedBookCandidate[]) {
     return books;
   }
 }
+
+export async function regenerateSingleBookSummary(input: {
+  title: string;
+  author: string;
+  parsedText: string;
+  sourceTitle?: string;
+  recommender?: string;
+  snippet?: string;
+  rationale?: string;
+}) {
+  const [enriched] = await enrichBookSummaries({
+    parsedText: input.parsedText,
+    sourceTitle: input.sourceTitle,
+    recommender: input.recommender,
+    books: [
+      {
+        title: input.title,
+        author: input.author,
+        snippet: input.snippet,
+        rationale: input.rationale
+      }
+    ]
+  });
+
+  const [embedded] = await enrichBookEmbeddings([
+    {
+      title: input.title,
+      author: input.author,
+      bookSummary: enriched?.bookSummary,
+      snippet: input.snippet,
+      rationale: input.rationale
+    }
+  ]);
+
+  return {
+    summary:
+      enriched?.bookSummary ||
+      input.rationale ||
+      input.snippet ||
+      `${input.title} by ${input.author}.`,
+    embedding: embedded?.embedding
+  };
+}
