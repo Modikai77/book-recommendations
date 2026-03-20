@@ -74,8 +74,8 @@ export function SourceSubmissionForm() {
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
-      <form onSubmit={onSubmit} className="rounded-[2rem] border border-stone-200 bg-white/80 p-6 shadow-sm">
+    <div className="grid gap-5 lg:grid-cols-[1.5fr_1fr] lg:gap-6">
+      <form onSubmit={onSubmit} className="rounded-[1.75rem] border border-stone-200 bg-white/80 p-5 shadow-sm md:rounded-[2rem] md:p-6">
         <div className="grid gap-4 md:grid-cols-2">
           <label className="space-y-2 text-sm">
             <span className="text-stone-700">Source type</span>
@@ -116,7 +116,7 @@ export function SourceSubmissionForm() {
           <label className="mt-4 block space-y-2 text-sm">
             <span className="text-stone-700">{type === "markdown" ? "Markdown content" : "Email content"}</span>
             <textarea
-              className="min-h-72 w-full rounded-[1.5rem] border border-stone-200 bg-white px-4 py-3"
+              className="min-h-64 w-full rounded-[1.25rem] border border-stone-200 bg-white px-4 py-3 md:min-h-72 md:rounded-[1.5rem]"
               value={rawText}
               onChange={(event) => setRawText(event.target.value)}
               placeholder={
@@ -162,7 +162,7 @@ export function SourceSubmissionForm() {
         <button
           type="submit"
           disabled={loading}
-          className="mt-6 rounded-full bg-stone-900 px-5 py-3 text-sm font-medium text-white disabled:opacity-60"
+          className="mt-6 w-full rounded-full bg-stone-900 px-5 py-3.5 text-sm font-medium text-white disabled:opacity-60 sm:w-auto"
         >
           {loading ? "Submitting..." : "Submit source"}
         </button>
@@ -170,8 +170,8 @@ export function SourceSubmissionForm() {
         {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
       </form>
 
-      <aside className="rounded-[2rem] border border-stone-200 bg-stone-900 p-6 text-stone-50">
-        <h3 className="font-serif text-2xl">What happens next</h3>
+      <aside className="rounded-[1.75rem] border border-stone-200 bg-stone-900 p-5 text-stone-50 md:rounded-[2rem] md:p-6">
+        <h3 className="font-serif text-xl sm:text-2xl">What happens next</h3>
         <ol className="mt-4 space-y-3 text-sm text-stone-200">
           <li>1. The source is normalized based on whether it is email, web content, or markdown.</li>
           <li>2. An extraction step identifies candidate books, snippets, tags, and source context.</li>
@@ -180,7 +180,7 @@ export function SourceSubmissionForm() {
         </ol>
 
         {result ? (
-          <div className="mt-6 rounded-[1.5rem] bg-white/10 p-4">
+          <div className="mt-6 rounded-[1.25rem] bg-white/10 p-4 md:rounded-[1.5rem]">
             <p className="text-xs uppercase tracking-[0.3em] text-stone-300">Queued</p>
             <p className="mt-2 text-sm">Source ID: {result.sourceId}</p>
             <p className="text-sm">Status: {result.status}</p>

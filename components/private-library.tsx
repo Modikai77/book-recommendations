@@ -87,7 +87,7 @@ export function PrivateLibrary({ books, initialQuery = "", initialSourceFilter =
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 rounded-[2rem] border border-stone-200 bg-white/80 p-5 md:grid-cols-[1.5fr_1fr_1fr]">
+      <div className="grid gap-3 rounded-[1.75rem] border border-stone-200 bg-white/80 p-4 md:grid-cols-[1.5fr_1fr_1fr] md:gap-4 md:rounded-[2rem] md:p-5">
         <label className="space-y-2 text-sm">
           <span className="text-stone-700">Search title, tags, description, source</span>
           <input
@@ -127,7 +127,7 @@ export function PrivateLibrary({ books, initialQuery = "", initialSourceFilter =
         </label>
       </div>
 
-      <div className="rounded-[1.75rem] border border-stone-200 bg-white/75 p-5 text-sm text-stone-600">
+      <div className="rounded-[1.5rem] border border-stone-200 bg-white/75 p-4 text-sm text-stone-600 md:rounded-[1.75rem] md:p-5">
         {filteredBooks.length} private books found
       </div>
       {error ? (
@@ -136,11 +136,11 @@ export function PrivateLibrary({ books, initialQuery = "", initialSourceFilter =
 
       <div className="space-y-4">
         {filteredBooks.map((book) => (
-          <article key={book.id} className="rounded-[1.75rem] border border-stone-200 bg-white/80 p-5 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-3">
+          <article key={book.id} className="rounded-[1.5rem] border border-stone-200 bg-white/80 p-4 shadow-sm md:rounded-[1.75rem] md:p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
               <div>
                 <p className="text-xs uppercase tracking-[0.25em] text-stone-500">{book.author}</p>
-                <h2 className="mt-2 font-serif text-2xl text-stone-900">{book.title}</h2>
+                <h2 className="mt-2 font-serif text-xl text-stone-900 sm:text-2xl">{book.title}</h2>
               </div>
               {book.sourceTitle ? (
                 <span className="rounded-full bg-stone-100 px-3 py-1 text-xs text-stone-700">{book.sourceTitle}</span>
@@ -164,12 +164,12 @@ export function PrivateLibrary({ books, initialQuery = "", initialSourceFilter =
                 </span>
               ) : null}
             </div>
-            <div className="mt-5 flex justify-end">
+            <div className="mt-5 flex">
               <button
                 type="button"
                 onClick={() => redoSummary(book.id)}
                 disabled={isPending && pendingBookId === book.id}
-                className="rounded-full border border-stone-300 px-4 py-2 text-xs font-medium text-stone-700 transition hover:bg-stone-100 disabled:opacity-60"
+                className="w-full rounded-full border border-stone-300 px-4 py-3 text-sm font-medium text-stone-700 transition hover:bg-stone-100 disabled:opacity-60 sm:ml-auto sm:w-auto sm:text-xs sm:py-2"
               >
                 {isPending && pendingBookId === book.id ? "Redoing..." : "Redo Summary"}
               </button>

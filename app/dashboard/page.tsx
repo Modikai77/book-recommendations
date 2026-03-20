@@ -22,13 +22,13 @@ export default async function DashboardPage() {
 
   return (
     <SiteShell>
-      <section className="space-y-6">
-        <div className="rounded-[2rem] border border-stone-200 bg-white/75 p-6 shadow-sm">
+      <section className="space-y-5 md:space-y-6">
+        <div className="rounded-[1.75rem] border border-stone-200 bg-white/75 p-5 shadow-sm md:rounded-[2rem] md:p-6">
           <p className="text-xs uppercase tracking-[0.35em] text-stone-500">Dashboard</p>
-          <h1 className="mt-2 font-serif text-4xl text-stone-900">
+          <h1 className="mt-2 font-serif text-3xl text-stone-900 sm:text-4xl">
             {dashboard.userName ? `Welcome back, ${dashboard.userName}.` : "Welcome back."}
           </h1>
-          <p className="mt-3 text-lg text-stone-800">
+          <p className="mt-3 text-base text-stone-800 sm:text-lg">
             {dashboard.privateBookCount} books from {dashboard.sourceCount} sources in your private library.
           </p>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-stone-700">{dashboard.guidance}</p>

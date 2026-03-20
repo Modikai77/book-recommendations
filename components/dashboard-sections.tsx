@@ -23,14 +23,14 @@ export function DashboardActionCards() {
   ] satisfies Array<{ title: string; detail: string; href: Route }>;
 
   return (
-    <div className="grid gap-4 md:grid-cols-3">
+    <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 md:gap-4">
       {actions.map((action) => (
         <Link
           key={action.title}
           href={action.href}
-          className="rounded-[1.75rem] border border-stone-200 bg-white/80 p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+          className="rounded-[1.5rem] border border-stone-200 bg-white/80 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md md:rounded-[1.75rem] md:p-5"
         >
-          <p className="font-serif text-2xl text-stone-900">{action.title}</p>
+          <p className="font-serif text-xl text-stone-900 sm:text-2xl">{action.title}</p>
           <p className="mt-3 text-sm leading-6 text-stone-700">{action.detail}</p>
           <p className="mt-4 text-sm font-medium text-stone-900 underline">Open</p>
         </Link>
@@ -41,11 +41,11 @@ export function DashboardActionCards() {
 
 export function RecentSourcesPanel({ sources }: { sources: DashboardSourceItem[] }) {
   return (
-    <section className="rounded-[2rem] border border-stone-200 bg-white/80 p-6 shadow-sm">
+    <section className="rounded-[1.75rem] border border-stone-200 bg-white/80 p-5 shadow-sm md:rounded-[2rem] md:p-6">
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.35em] text-stone-500">Recent sources</p>
-          <h2 className="mt-2 font-serif text-3xl text-stone-900">Latest imports</h2>
+          <h2 className="mt-2 font-serif text-2xl text-stone-900 sm:text-3xl">Latest imports</h2>
         </div>
         <Link href="/submit-source" className="text-sm font-medium text-stone-900 underline">
           Submit another
@@ -56,7 +56,7 @@ export function RecentSourcesPanel({ sources }: { sources: DashboardSourceItem[]
         {sources.length ? (
           sources.map((source) => (
             <div key={source.id} className="rounded-[1.25rem] border border-stone-200 bg-stone-50/80 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                 <div>
                   <p className="font-medium text-stone-900">{source.title}</p>
                   <p className="mt-1 text-xs uppercase tracking-[0.25em] text-stone-500">{source.type}</p>
@@ -89,11 +89,11 @@ export function RecentSourcesPanel({ sources }: { sources: DashboardSourceItem[]
 
 export function RecentBooksPanel({ books }: { books: BookRecord[] }) {
   return (
-    <section className="rounded-[2rem] border border-stone-200 bg-white/80 p-6 shadow-sm">
+    <section className="rounded-[1.75rem] border border-stone-200 bg-white/80 p-5 shadow-sm md:rounded-[2rem] md:p-6">
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-[0.35em] text-stone-500">Recent books</p>
-          <h2 className="mt-2 font-serif text-3xl text-stone-900">Freshly materialized</h2>
+          <h2 className="mt-2 font-serif text-2xl text-stone-900 sm:text-3xl">Freshly materialized</h2>
         </div>
         <Link href="/lists" className="text-sm font-medium text-stone-900 underline">
           View all
@@ -103,9 +103,9 @@ export function RecentBooksPanel({ books }: { books: BookRecord[] }) {
       <div className="mt-5 grid gap-4 lg:grid-cols-2">
         {books.length ? (
           books.map((book) => (
-            <article key={book.id} className="rounded-[1.5rem] border border-stone-200 bg-stone-50/80 p-4">
+            <article key={book.id} className="rounded-[1.35rem] border border-stone-200 bg-stone-50/80 p-4 md:rounded-[1.5rem]">
               <p className="text-xs uppercase tracking-[0.25em] text-stone-500">{book.author}</p>
-              <h3 className="mt-2 font-serif text-2xl text-stone-900">{book.title}</h3>
+              <h3 className="mt-2 font-serif text-xl text-stone-900 sm:text-2xl">{book.title}</h3>
               <p className="mt-3 text-sm leading-6 text-stone-700">
                 {book.metadata?.summary || book.metadata?.shortSummary || book.canonicalSummary || "No summary yet."}
               </p>
@@ -144,11 +144,11 @@ export function LibraryOverviewPanel(props: {
   sourceBreakdown: Array<{ type: string; count: number }>;
 }) {
   return (
-    <section className="rounded-[2rem] border border-stone-200 bg-white/80 p-6 shadow-sm">
+    <section className="rounded-[1.75rem] border border-stone-200 bg-white/80 p-5 shadow-sm md:rounded-[2rem] md:p-6">
       <p className="text-xs uppercase tracking-[0.35em] text-stone-500">Library overview</p>
-      <h2 className="mt-2 font-serif text-3xl text-stone-900">Current shape of your collection</h2>
+      <h2 className="mt-2 font-serif text-2xl text-stone-900 sm:text-3xl">Current shape of your collection</h2>
 
-      <div className="mt-5 grid gap-4 md:grid-cols-3">
+      <div className="mt-5 grid gap-3 md:grid-cols-3 md:gap-4">
         <div className="rounded-[1.5rem] border border-stone-200 bg-stone-50/80 p-4">
           <p className="text-3xl font-semibold text-stone-900">{props.privateBookCount}</p>
           <p className="mt-1 text-sm text-stone-700">Private books</p>
@@ -163,7 +163,7 @@ export function LibraryOverviewPanel(props: {
         </div>
       </div>
 
-      <div className="mt-5 grid gap-4 lg:grid-cols-2">
+      <div className="mt-5 grid gap-3 lg:grid-cols-2 md:gap-4">
         <div className="rounded-[1.5rem] border border-stone-200 bg-stone-50/80 p-4">
           <p className="text-sm font-medium text-stone-900">Top tags</p>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -200,16 +200,16 @@ export function LibraryOverviewPanel(props: {
 
 export function SuggestedPromptsPanel({ prompts }: { prompts: DashboardPromptSuggestion[] }) {
   return (
-    <section className="rounded-[2rem] border border-stone-200 bg-white/80 p-6 shadow-sm">
+    <section className="rounded-[1.75rem] border border-stone-200 bg-white/80 p-5 shadow-sm md:rounded-[2rem] md:p-6">
       <p className="text-xs uppercase tracking-[0.35em] text-stone-500">Recommendation starters</p>
-      <h2 className="mt-2 font-serif text-3xl text-stone-900">Try a focused prompt</h2>
+      <h2 className="mt-2 font-serif text-2xl text-stone-900 sm:text-3xl">Try a focused prompt</h2>
 
       <div className="mt-5 grid gap-3 md:grid-cols-3">
         {prompts.map((prompt) => (
           <Link
             key={prompt.prompt}
             href={`/recommendations?prompt=${encodeURIComponent(prompt.prompt)}`}
-            className="rounded-[1.5rem] border border-stone-200 bg-stone-50/80 p-4 transition hover:-translate-y-0.5 hover:shadow-sm"
+            className="rounded-[1.35rem] border border-stone-200 bg-stone-50/80 p-4 transition hover:-translate-y-0.5 hover:shadow-sm md:rounded-[1.5rem]"
           >
             <p className="text-sm font-medium text-stone-900">{prompt.label}</p>
             <p className="mt-2 text-sm leading-6 text-stone-700">{prompt.prompt}</p>
@@ -226,9 +226,9 @@ export function AttentionItemsPanel({ items }: { items: DashboardAttentionItem[]
   }
 
   return (
-    <section className="rounded-[2rem] border border-amber-200 bg-amber-50/70 p-6 shadow-sm">
+    <section className="rounded-[1.75rem] border border-amber-200 bg-amber-50/70 p-5 shadow-sm md:rounded-[2rem] md:p-6">
       <p className="text-xs uppercase tracking-[0.35em] text-amber-800">Needs attention</p>
-      <h2 className="mt-2 font-serif text-3xl text-stone-900">A few things worth cleaning up</h2>
+      <h2 className="mt-2 font-serif text-2xl text-stone-900 sm:text-3xl">A few things worth cleaning up</h2>
 
       <div className="mt-5 space-y-3">
         {items.map((item) => (

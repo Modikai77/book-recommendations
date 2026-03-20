@@ -50,19 +50,19 @@ export function AuthPanel() {
   }
 
   return (
-    <div className="rounded-[2rem] border border-stone-200/70 bg-white/75 p-6 shadow-lg shadow-stone-900/5">
+    <div className="rounded-[1.75rem] border border-stone-200/70 bg-white/75 p-5 shadow-lg shadow-stone-900/5 sm:rounded-[2rem] sm:p-6">
       <div className="flex gap-2 rounded-full bg-stone-100 p-1 text-sm">
         <button
           type="button"
           onClick={() => setMode("signin")}
-          className={`flex-1 rounded-full px-4 py-2 ${mode === "signin" ? "bg-stone-900 text-white" : ""}`}
+          className={`flex-1 rounded-full px-4 py-3 ${mode === "signin" ? "bg-stone-900 text-white" : ""}`}
         >
           Sign in
         </button>
         <button
           type="button"
           onClick={() => setMode("signup")}
-          className={`flex-1 rounded-full px-4 py-2 ${mode === "signup" ? "bg-stone-900 text-white" : ""}`}
+          className={`flex-1 rounded-full px-4 py-3 ${mode === "signup" ? "bg-stone-900 text-white" : ""}`}
         >
           Create account
         </button>
@@ -103,14 +103,14 @@ export function AuthPanel() {
           />
         </label>
 
-        <button className="w-full rounded-full bg-stone-900 px-5 py-3 text-sm font-medium text-white" type="submit">
+        <button className="w-full rounded-full bg-stone-900 px-5 py-3.5 text-sm font-medium text-white" type="submit">
           {loading ? "Please wait..." : mode === "signup" ? "Create account" : "Sign in"}
         </button>
 
         <button
           type="button"
           onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
-          className="w-full rounded-full border border-stone-300 px-5 py-3 text-sm font-medium"
+          className="w-full rounded-full border border-stone-300 px-5 py-3.5 text-sm font-medium"
         >
           Continue with Google
         </button>
