@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { fetchReadableContent } from "@/lib/content-fetch";
 import { normalizeObsidianMarkdown } from "@/lib/markdown";
-import { createEmbeddings, getOpenAIClient } from "@/lib/openai";
+import { createEmbeddings, getOpenAIClient, OPENAI_DEFAULT_MODEL } from "@/lib/openai";
 import type { ExtractedBookCandidate, SourceType } from "@/lib/types";
 
 const extractedBookSchema = z.object({
@@ -116,12 +116,12 @@ export async function extractBooksFromSource(input: {
   }
 
   const completion = await client.responses.create({
-    model: process.env.OPENAI_EXTRACTION_MODEL ?? "gpt-4.1-mini",
+    model: process.env.OPENAI_EXTRACTION_MODEL ?? OPENAI_DEFAULT_MODEL,
     input: [
       {
         role: "system",
         content:
-          "Extract recommended books from the source. Return JSON with recommender, sourceSummary, and books. Include only books explicitly recommended or clearly discussed as recommendations."
+          "Extract recommended books from the source. Capture all explicit recommendations and books clearly discussed as recommendations. Exclude passing mentions, uncertain matches, and unsupported details."
       },
       {
         role: "user",
@@ -248,14 +248,14 @@ export async function enrichBookSummaries(input: {
       model:
         process.env.OPENAI_SUMMARY_MODEL ??
         process.env.OPENAI_EXTRACTION_MODEL ??
-        "gpt-4.1-mini",
+        OPENAI_DEFAULT_MODEL,
       tools: [{ type: "web_search" }],
       tool_choice: "auto",
       input: [
         {
           role: "system",
           content:
-            "Write a concise 1-2 sentence summary for each listed book. Use the source text when sufficient. If the source text does not explain the book, use web search to verify and fill the gap. Do not invent details."
+            "Write a concise 1-2 sentence summary for each listed book. Use the source text when sufficient. If the source text does not explain the book, use web search to verify and fill the gap. Return one summary for every provided id and do not invent details."
         },
         {
           role: "user",
@@ -366,14 +366,14 @@ export async function regenerateSingleBookSummary(input: {
     model:
       process.env.OPENAI_SUMMARY_MODEL ??
       process.env.OPENAI_EXTRACTION_MODEL ??
-      "gpt-4.1-mini",
+      OPENAI_DEFAULT_MODEL,
     tools: [{ type: "web_search" }],
     tool_choice: "auto",
     input: [
       {
         role: "system",
         content:
-          "Write a fresh 1-2 sentence book summary. Prefer verified book-level information. Use web search when needed. Do not repeat the source recommendation blurb unless it contains uniquely useful context. Return JSON only."
+          "Write a fresh 1-2 sentence book summary. Prefer verified book-level information. Use web search when needed. Do not repeat the source recommendation blurb unless it contains uniquely useful context. Do not invent details."
       },
       {
         role: "user",

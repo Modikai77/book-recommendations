@@ -1,5 +1,7 @@
 import OpenAI from "openai";
 
+export const OPENAI_DEFAULT_MODEL = "gpt-5.5";
+
 export function getOpenAIClient() {
   const apiKey = process.env.OPENAI_API_KEY;
 

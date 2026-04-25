@@ -1,6 +1,6 @@
 import type { BookRecord, ParsedRecommendationQuery, RecommendationReason, UserTasteProfile } from "@/lib/types";
 import { defaultParsedQuery } from "@/lib/demo-data";
-import { getOpenAIClient } from "@/lib/openai";
+import { getOpenAIClient, OPENAI_DEFAULT_MODEL } from "@/lib/openai";
 
 const genreKeywords = ["fiction", "nonfiction", "mystery", "speculative", "literary", "history", "memoir"];
 const toneKeywords = ["gentle", "funny", "dark", "reflective", "dreamlike", "fast", "quiet", "tender"];
@@ -63,12 +63,12 @@ export async function parseRecommendationQueryWithAI(query: string): Promise<Par
       model:
         process.env.OPENAI_RECOMMENDATION_MODEL ??
         process.env.OPENAI_EXTRACTION_MODEL ??
-        "gpt-4.1-mini",
+        OPENAI_DEFAULT_MODEL,
       input: [
         {
           role: "system",
           content:
-            "You interpret book recommendation requests into structured retrieval intent. Normalize everything to lowercase. Keep lists concise and only include signals explicitly or strongly implicitly requested."
+            "Interpret book recommendation requests into structured retrieval intent. Normalize fields to lowercase. Include only signals explicitly requested or strongly implied, keep lists concise, and leave uncertain fields empty."
         },
         {
           role: "user",
