@@ -13,7 +13,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "seed": "tsx prisma/seed.ts",
-    "backfill:summaries": "tsx prisma/backfill-summaries.ts"
+    "backfill:summaries": "tsx prisma/backfill-summaries.ts",
+    "backfill:tags": "tsx prisma/backfill-tags.ts"
   },
   "keywords": [],
   "author": "",

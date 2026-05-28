@@ -216,6 +216,87 @@ const summaryPayloadSchema = z.object({
   books: z.array(summaryItemSchema)
 });
 
+export const CONTROLLED_BOOK_TAGS = [
+  "Fiction",
+  "Literary Fiction",
+  "Sci-fi",
+  "Fantasy",
+  "Mystery",
+  "Thriller",
+  "Crime",
+  "Horror",
+  "Historical Fiction",
+  "Classics",
+  "Short Stories",
+  "Poetry",
+  "Romance",
+  "Dystopian",
+  "Graphic Novel",
+  "Young Adult",
+  "Children",
+  "Nonfiction",
+  "Biography",
+  "Memoir",
+  "History",
+  "Politics",
+  "Economics",
+  "Business",
+  "Science",
+  "Technology",
+  "Philosophy",
+  "Psychology",
+  "Sociology",
+  "Religion",
+  "Art",
+  "Travel",
+  "Nature",
+  "Essays",
+  "War",
+  "Sports",
+  "Food",
+  "Health",
+  "Self-help"
+] as const;
+
+const controlledTagMap = new Map(
+  CONTROLLED_BOOK_TAGS.map((tag) => [tag.toLowerCase(), tag])
+);
+
+const tagAliases = new Map<string, string>([
+  ["science fiction", "Sci-fi"],
+  ["sci fi", "Sci-fi"],
+  ["scifi", "Sci-fi"],
+  ["sci-fi", "Sci-fi"],
+  ["literary", "Literary Fiction"],
+  ["literature", "Literary Fiction"],
+  ["classic", "Classics"],
+  ["classic fiction", "Classics"],
+  ["non-fiction", "Nonfiction"],
+  ["non fiction", "Nonfiction"],
+  ["bio", "Biography"],
+  ["autobiography", "Memoir"],
+  ["political", "Politics"],
+  ["economy", "Economics"],
+  ["business book", "Business"],
+  ["tech", "Technology"],
+  ["psych", "Psychology"],
+  ["social science", "Sociology"],
+  ["religious", "Religion"],
+  ["essay", "Essays"],
+  ["sportswriting", "Sports"],
+  ["self help", "Self-help"],
+  ["self improvement", "Self-help"]
+]);
+
+const tagPayloadSchema = z.object({
+  books: z.array(
+    z.object({
+      id: z.string(),
+      tags: z.array(z.string())
+    })
+  )
+});
+
 function fallbackBookSummary(candidate: ExtractedBookCandidate) {
   return (
     candidate.bookSummary ||
@@ -321,6 +402,196 @@ export async function enrichBookSummaries(input: {
     return input.books.map((book) => ({
       ...book,
       bookSummary: fallbackBookSummary(book)
+    }));
+  }
+}
+
+export function normalizeBookTags(tags: Array<string | null | undefined>) {
+  const normalized = new Map<string, string>();
+
+  for (const rawTag of tags) {
+    const cleaned = rawTag?.trim().replace(/\s+/g, " ");
+    if (!cleaned) {
+      continue;
+    }
+
+    const lower = cleaned.toLowerCase();
+    const canonical = tagAliases.get(lower) ?? controlledTagMap.get(lower);
+    if (canonical) {
+      normalized.set(canonical.toLowerCase(), canonical);
+    }
+  }
+
+  return [...normalized.values()].slice(0, 5);
+}
+
+export function inferFallbackBookTags(book: ExtractedBookCandidate) {
+  const text = [book.title, book.author, book.bookSummary, book.rationale, book.snippet]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  const tags: string[] = [];
+  const add = (tag: string) => {
+    if (!tags.includes(tag)) {
+      tags.push(tag);
+    }
+  };
+
+  if (/\b(novel|fiction|story|stories|literary)\b/.test(text)) {
+    add("Fiction");
+  }
+  if (/\b(science fiction|sci-fi|sci fi|space|alien|dystopian|cyberpunk|robot|future)\b/.test(text)) {
+    add("Sci-fi");
+  }
+  if (/\b(fantasy|magic|magical|dragon|wizard)\b/.test(text)) {
+    add("Fantasy");
+  }
+  if (/\b(mystery|detective|murder|crime|police)\b/.test(text)) {
+    add("Mystery");
+  }
+  if (/\b(thriller|spy|espionage|suspense)\b/.test(text)) {
+    add("Thriller");
+  }
+  if (/\b(horror|ghost|haunted|terror)\b/.test(text)) {
+    add("Horror");
+  }
+  if (/\b(history|historical|empire|war|revolution|ancient|medieval)\b/.test(text)) {
+    add(text.includes("novel") || text.includes("fiction") ? "Historical Fiction" : "History");
+  }
+  if (/\b(memoir|autobiograph|personal account)\b/.test(text)) {
+    add("Memoir");
+  }
+  if (/\b(biography|life of|portrait of)\b/.test(text)) {
+    add("Biography");
+  }
+  if (/\b(politics|political|government|democracy|election|state)\b/.test(text)) {
+    add("Politics");
+  }
+  if (/\b(economics|economy|market|capitalism|finance)\b/.test(text)) {
+    add("Economics");
+  }
+  if (/\b(science|physics|biology|chemistry|evolution|astronomy)\b/.test(text)) {
+    add("Science");
+  }
+  if (/\b(technology|internet|software|computer|ai|artificial intelligence)\b/.test(text)) {
+    add("Technology");
+  }
+  if (/\b(philosophy|ethics|stoic|metaphysics|meaning)\b/.test(text)) {
+    add("Philosophy");
+  }
+  if (/\b(psychology|mind|cognitive|behavior|behaviour)\b/.test(text)) {
+    add("Psychology");
+  }
+  if (/\b(essay|essays|criticism)\b/.test(text)) {
+    add("Essays");
+  }
+
+  if (!tags.length && text) {
+    add("Nonfiction");
+  }
+
+  return tags.slice(0, 5);
+}
+
+export async function enrichBookTags(books: ExtractedBookCandidate[]) {
+  if (!books.length) {
+    return books;
+  }
+
+  const client = getOpenAIClient();
+  if (!client) {
+    return books.map((book) => ({
+      ...book,
+      tags: normalizeBookTags([...(book.tags ?? []), ...inferFallbackBookTags(book)])
+    }));
+  }
+
+  try {
+    const response = await client.responses.create({
+      model:
+        process.env.OPENAI_TAGGING_MODEL ??
+        process.env.OPENAI_SUMMARY_MODEL ??
+        process.env.OPENAI_EXTRACTION_MODEL ??
+        OPENAI_DEFAULT_MODEL,
+      input: [
+        {
+          role: "system",
+          content:
+            "Classify each book with 2-5 useful library tags. Use only the provided controlled tag list. Prefer genre and subject tags that help browsing, such as Fiction, Sci-fi, History, Biography, Politics, Technology, Philosophy. Return tags for every id."
+        },
+        {
+          role: "user",
+          content: JSON.stringify({
+            controlledTags: CONTROLLED_BOOK_TAGS,
+            books: books.map((book, index) => ({
+              id: String(index),
+              title: book.title,
+              author: book.author,
+              summary: book.bookSummary || book.rationale || book.snippet,
+              existingTags: book.tags ?? []
+            }))
+          })
+        }
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "book_tags",
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              books: {
+                type: "array",
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    id: { type: "string" },
+                    tags: {
+                      type: "array",
+                      items: {
+                        type: "string",
+                        enum: CONTROLLED_BOOK_TAGS
+                      },
+                      minItems: 1,
+                      maxItems: 5
+                    }
+                  },
+                  required: ["id", "tags"]
+                }
+              }
+            },
+            required: ["books"]
+          }
+        }
+      }
+    });
+
+    const rawOutput = response.output_text;
+    if (!rawOutput) {
+      return books.map((book) => ({
+        ...book,
+        tags: normalizeBookTags([...(book.tags ?? []), ...inferFallbackBookTags(book)])
+      }));
+    }
+
+    const parsed = tagPayloadSchema.parse(JSON.parse(rawOutput));
+    const tagsById = new Map(parsed.books.map((book) => [book.id, book.tags]));
+
+    return books.map((book, index) => ({
+      ...book,
+      tags: normalizeBookTags([
+        ...(book.tags ?? []),
+        ...(tagsById.get(String(index)) ?? []),
+        ...inferFallbackBookTags(book)
+      ])
+    }));
+  } catch {
+    return books.map((book) => ({
+      ...book,
+      tags: normalizeBookTags([...(book.tags ?? []), ...inferFallbackBookTags(book)])
     }));
   }
 }

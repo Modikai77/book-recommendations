@@ -4,7 +4,13 @@ import { z } from "zod";
 import { createSourceRecord, materializePrivateBooksForSource } from "@/lib/data";
 import { prisma } from "@/lib/prisma";
 import { getRequiredSessionUser } from "@/lib/session-user";
-import { enrichBookEmbeddings, enrichBookSummaries, extractBooksFromSource, normalizeSourceInput } from "@/lib/source-processing";
+import {
+  enrichBookEmbeddings,
+  enrichBookSummaries,
+  enrichBookTags,
+  extractBooksFromSource,
+  normalizeSourceInput
+} from "@/lib/source-processing";
 
 const sourceSchema = z.object({
   type: z.enum(["email", "web_link", "markdown"]),
@@ -35,7 +41,8 @@ export async function POST(request: Request) {
       recommender: extracted.recommender,
       books: extracted.books
     });
-    const embeddedBooks = await enrichBookEmbeddings(enrichedBooks);
+    const taggedBooks = await enrichBookTags(enrichedBooks);
+    const embeddedBooks = await enrichBookEmbeddings(taggedBooks);
 
     const source = await createSourceRecord({
       submittedByUserId: sessionResult.user.id,
@@ -49,7 +56,8 @@ export async function POST(request: Request) {
         JSON.stringify({
           ...normalized.metadata,
           ...(payload.sourceMetadata ?? {}),
-          summariesGenerated: true
+          summariesGenerated: true,
+          tagsGenerated: true
         })
       ) as Prisma.InputJsonValue
     });
@@ -83,7 +91,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       sourceId: source.id,
       status: source.status,
-      extractedBooks: embeddedBooks.map(({ title, author, bookSummary }) => ({ title, author, bookSummary }))
+      extractedBooks: embeddedBooks.map(({ title, author, bookSummary, tags }) => ({ title, author, bookSummary, tags }))
     });
   } catch (error) {
     console.error("Failed to submit source", error);
