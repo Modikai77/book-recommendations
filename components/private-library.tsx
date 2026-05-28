@@ -37,6 +37,7 @@ export function PrivateLibrary({ books, initialQuery = "", initialSourceFilter =
   const [query, setQuery] = useState(initialQuery);
   const [sourceFilter, setSourceFilter] = useState(initialSourceFilter);
   const [tagFilter, setTagFilter] = useState(initialTagFilter);
+  const [showReadBooks, setShowReadBooks] = useState(false);
   const [readLogSort, setReadLogSort] = useState<ReadLogSort>("readAtDesc");
   const [readDialogBook, setReadDialogBook] = useState<BookRecord | null>(null);
   const [readDate, setReadDate] = useState(todayDateInputValue());
@@ -63,6 +64,10 @@ export function PrivateLibrary({ books, initialQuery = "", initialSourceFilter =
     const normalized = query.toLowerCase().trim();
 
     return libraryBooks.filter((book) => {
+      if (!showReadBooks && book.readLog) {
+        return false;
+      }
+
       const matchesQuery =
         !normalized ||
         [book.title, book.author, book.sourceTitle, book.metadata?.summary, ...(book.tags || [])]
@@ -74,7 +79,12 @@ export function PrivateLibrary({ books, initialQuery = "", initialSourceFilter =
 
       return matchesQuery && matchesSource && matchesTag;
     });
-  }, [libraryBooks, query, sourceFilter, tagFilter]);
+  }, [libraryBooks, query, sourceFilter, tagFilter, showReadBooks]);
+
+  const hiddenReadBookCount = useMemo(
+    () => libraryBooks.filter((book) => book.readLog).length,
+    [libraryBooks]
+  );
 
   const readLogBooks = useMemo(
     () => sortReadLogBooks(getReadLogBooks(libraryBooks), readLogSort),
@@ -236,7 +246,7 @@ export function PrivateLibrary({ books, initialQuery = "", initialSourceFilter =
 
       {view === "library" ? (
         <>
-          <div className="grid gap-3 rounded-[1.75rem] border border-stone-200 bg-white/80 p-4 md:grid-cols-[1.5fr_1fr_1fr] md:gap-4 md:rounded-[2rem] md:p-5">
+          <div className="grid gap-3 rounded-[1.75rem] border border-stone-200 bg-white/80 p-4 md:grid-cols-[1.5fr_1fr_1fr_auto] md:items-end md:gap-4 md:rounded-[2rem] md:p-5">
             <label className="space-y-2 text-sm">
               <span className="text-stone-700">Search title, tags, description, source</span>
               <input
@@ -274,10 +284,27 @@ export function PrivateLibrary({ books, initialQuery = "", initialSourceFilter =
                 ))}
               </select>
             </label>
+            <div className="space-y-2 text-sm">
+              <span className="text-stone-700">Read books</span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={showReadBooks}
+                onClick={() => setShowReadBooks((current) => !current)}
+                className={`inline-flex w-full items-center justify-center rounded-full border px-4 py-3 text-sm font-medium transition md:w-36 ${
+                  showReadBooks
+                    ? "border-stone-900 bg-stone-900 text-white"
+                    : "border-stone-300 bg-white text-stone-700 hover:bg-stone-100"
+                }`}
+              >
+                {showReadBooks ? "Hide Read" : "Show Read"}
+              </button>
+            </div>
           </div>
 
           <div className="rounded-[1.5rem] border border-stone-200 bg-white/75 p-4 text-sm text-stone-600 md:rounded-[1.75rem] md:p-5">
             {filteredBooks.length} private books found
+            {!showReadBooks && hiddenReadBookCount ? ` (${hiddenReadBookCount} read hidden)` : ""}
           </div>
         </>
       ) : (
@@ -567,7 +594,7 @@ function ReadLogItem(props: {
           disabled={isPending && pendingAction === `remove-read:${book.id}`}
           className="rounded-full border border-stone-300 px-4 py-3 text-sm font-medium text-stone-700 transition hover:bg-stone-100 disabled:opacity-60 sm:w-auto sm:py-2"
         >
-          {isPending && pendingAction === `remove-read:${book.id}` ? "Removing..." : "Remove"}
+          {isPending && pendingAction === `remove-read:${book.id}` ? "Marking..." : "Mark not Read"}
         </button>
       </div>
     </article>
