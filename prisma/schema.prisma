@@ -82,6 +82,7 @@ model User {
   sources          Source[]
   lists            List[]
   interactions     UserBookInteraction[]
+  readLogs         ReadBookLog[]
   recommendationQueries RecommendationQuery[]
   adminReviews     AdminReview[]
 }
@@ -147,6 +148,7 @@ model Book {
   mentions         RecommendationMention[]
   listItems        ListItem[]
   interactions     UserBookInteraction[]
+  readLogs         ReadBookLog[]
   results          RecommendationResult[]
 
   @@unique([title, author])
@@ -235,6 +237,21 @@ model UserBookInteraction {
   createdAt       DateTime        @default(now())
   user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   book            Book            @relation(fields: [bookId], references: [id], onDelete: Cascade)
+}
+
+model ReadBookLog {
+  id            String   @id @default(cuid())
+  userId        String
+  bookId        String
+  readAt        DateTime?
+  ratingOutOf10 Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book          Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, bookId])
+  @@index([userId, readAt])
 }
 
 model RecommendationQuery {

@@ -27,5 +27,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     }
   });
 
+  if (payload.interactionType === "MARKED_READ") {
+    await prisma.readBookLog.upsert({
+      where: {
+        userId_bookId: {
+          userId: sessionResult.user.id,
+          bookId: id
+        }
+      },
+      update: {},
+      create: {
+        userId: sessionResult.user.id,
+        bookId: id
+      }
+    });
+  }
+
   return NextResponse.json({ interactionId: interaction.id }, { status: 201 });
 }

@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { buildTasteProfile } from "@/lib/recommendations";
 import { slugify } from "@/lib/utils";
 import type {
+  BookReadLogRecord,
   BookReadingTraits,
   BookRecord,
   DashboardAttentionItem,
@@ -13,6 +14,21 @@ import type {
   ExtractedBookCandidate,
   UserTasteProfile
 } from "@/lib/types";
+
+function serializeReadLog(
+  readLog?: { readAt: Date | null; ratingOutOf10: number | null; createdAt: Date } | null
+): BookReadLogRecord | null {
+  if (!readLog) {
+    return null;
+  }
+
+  return {
+    isRead: true,
+    readAt: readLog.readAt?.toISOString() ?? null,
+    ratingOutOf10: readLog.ratingOutOf10,
+    markedAt: readLog.createdAt.toISOString()
+  };
+}
 
 export async function listBooksForUser(userId?: string): Promise<BookRecord[]> {
   try {
@@ -91,25 +107,39 @@ export async function getTasteProfile(userId?: string): Promise<UserTasteProfile
   }
 
   try {
-    const likedBooks = await prisma.userBookInteraction.findMany({
-      where: {
-        userId,
-        interactionType: { in: ["LIKED", "MARKED_READ"] }
-      },
-      include: {
-        book: {
-          include: { metadata: true, tags: { include: { tag: true } } }
+    const [likedBooks, readLogs] = await Promise.all([
+      prisma.userBookInteraction.findMany({
+        where: {
+          userId,
+          interactionType: { in: ["LIKED", "MARKED_READ"] }
+        },
+        include: {
+          book: {
+            include: { metadata: true, tags: { include: { tag: true } } }
+          }
         }
-      }
-    });
+      }),
+      prisma.readBookLog.findMany({
+        where: { userId },
+        include: {
+          book: {
+            include: { metadata: true, tags: { include: { tag: true } } }
+          }
+        }
+      })
+    ]);
 
-    if (!likedBooks.length) {
+    const tasteBooks = new Map(
+      [...likedBooks.map(({ book }) => book), ...readLogs.map(({ book }) => book)].map((book) => [book.id, book])
+    );
+
+    if (!tasteBooks.size) {
       return demoTasteProfile;
     }
 
     return buildTasteProfile(
       userId,
-      likedBooks.map(({ book }) => ({
+      [...tasteBooks.values()].map((book) => ({
         id: book.id,
         title: book.title,
         author: book.author,
@@ -292,6 +322,10 @@ export async function listPrivateLibraryForUser(userId: string): Promise<BookRec
           include: {
             tag: true
           }
+        },
+        readLogs: {
+          where: { userId },
+          take: 1
         }
       },
       orderBy: { updatedAt: "desc" }
@@ -313,7 +347,8 @@ export async function listPrivateLibraryForUser(userId: string): Promise<BookRec
         tags: book.tags.map((entry) => entry.tag.label)
       },
       tags: book.tags.map((entry) => entry.tag.label),
-      catalogStatus: book.catalogStatus
+      catalogStatus: book.catalogStatus,
+      readLog: serializeReadLog(book.readLogs[0])
     }));
   } catch {
     return demoBooks;

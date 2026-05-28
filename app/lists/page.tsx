@@ -26,7 +26,7 @@ export default async function ListsPage({
           <h1 className="mt-2 font-serif text-3xl sm:text-4xl">Books extracted from your submitted sources.</h1>
           <p className="mt-3 max-w-3xl text-sm leading-6 text-stone-700">
             Every successful source submission now materializes private books immediately. Search by title, filter by
-            source or tag, and review descriptions without waiting for admin approval.
+            source or tag, mark books as read, and review descriptions without waiting for admin approval.
           </p>
         </div>
         <PrivateLibrary

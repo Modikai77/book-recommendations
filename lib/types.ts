@@ -80,7 +80,24 @@ export type BookRecord = {
   };
   tags?: string[];
   catalogStatus?: "PRIVATE_ONLY" | "SHARED";
+  readLog?: BookReadLogRecord | null;
 };
+
+export type BookReadLogRecord = {
+  isRead: true;
+  readAt?: string | null;
+  ratingOutOf10?: number | null;
+  markedAt: string;
+};
+
+export type ReadLogSort =
+  | "readAtDesc"
+  | "readAtAsc"
+  | "noDateFirst"
+  | "titleAsc"
+  | "titleDesc"
+  | "ratingDesc"
+  | "markedAtDesc";
 
 export type DashboardSourceItem = {
   id: string;
