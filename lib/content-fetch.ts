@@ -1,3 +1,74 @@
+// Logs deliberately omit URL credentials, query strings, headers and response bodies.
+function safeUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return `${url.protocol}//${url.host}${url.pathname}`;
+  } catch {
+    return "[invalid URL]";
+  }
+}
+
+function redactDiagnostic(value: string) {
+  return value
+    .replace(/[a-z][a-z0-9+.-]*:\/\/[^\s<>"']+/gi, (url) => safeUrl(url))
+    .replace(/\b(?:authorization|proxy-authorization|cookie|set-cookie|api[-_]?key|[a-z0-9_-]*(?:password|token|secret))\s*[:=]\s*[^\r\n]+/gi, "[credential redacted]")
+    .replace(/\bBearer\s+\S+/gi, "Bearer [redacted]")
+    .replace(/\bsk-[a-zA-Z0-9_-]+/g, "[API key redacted]");
+}
+
+export function sourceErrorDiagnostics(error: unknown, depth = 0): Record<string, unknown> {
+  if (depth >= 6) return { message: "[cause depth limit]" };
+  if (!(error instanceof Error)) {
+    return { message: typeof error === "string" ? redactDiagnostic(error) : "Unknown error" };
+  }
+
+  const details: Record<string, unknown> = {
+    name: redactDiagnostic(error.name),
+    message: redactDiagnostic(error.message),
+    stack: error.stack ? redactDiagnostic(error.stack) : undefined
+  };
+  // Preserve useful network details without serializing arbitrary error/request objects.
+  for (const key of ["code", "errno", "syscall", "hostname"] as const) {
+    const value = (error as unknown as Record<string, unknown>)[key];
+    if (typeof value === "string") details[key] = redactDiagnostic(value);
+    if (typeof value === "number") details[key] = value;
+  }
+  if (error.cause !== undefined) details.cause = sourceErrorDiagnostics(error.cause, depth + 1);
+  if (error instanceof AggregateError) {
+    details.errors = error.errors.map((item) => sourceErrorDiagnostics(item, depth + 1));
+  }
+  if (error instanceof ContentFetchError) details.upstream = error.upstream;
+  return details;
+}
+
+export class ContentFetchError extends Error {
+  readonly upstream: {
+    requestedUrl: string;
+    finalUrl?: string;
+    status?: number;
+    statusText?: string;
+    contentType?: string | null;
+  };
+
+  constructor(url: string, cause: unknown, response?: Response) {
+    const reason = response && !response.ok
+      ? `The website returned HTTP ${response.status} ${redactDiagnostic(response.statusText)}.`
+      : response ? "The website response could not be read." : "The website could not be reached.";
+    super(`${reason} Open the article in your browser, then paste its text below to import the books.`, { cause });
+    this.name = "ContentFetchError";
+    this.upstream = {
+      requestedUrl: safeUrl(url),
+      ...(response ? {
+        finalUrl: safeUrl(response.url || url),
+        status: response.status,
+        statusText: redactDiagnostic(response.statusText),
+        contentType: response.headers.has("content-type")
+          ? redactDiagnostic(response.headers.get("content-type")!) : null
+      } : {})
+    };
+  }
+}
+
 function decodeHtmlEntities(input: string) {
   return input
     .replace(/&amp;/g, "&")
@@ -30,21 +101,26 @@ function htmlToText(html: string) {
 }
 
 export async function fetchReadableContent(url: string) {
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": "BookRecommendationsBot/1.0"
+  let response: Response | undefined;
+  try {
+    response = await fetch(url, {
+      headers: {
+        "User-Agent": "BookRecommendationsBot/1.0"
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Upstream returned HTTP ${response.status} ${response.statusText}`);
     }
-  });
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch content from ${url}`);
+    const html = await response.text();
+    const textContent = htmlToText(html);
+
+    return {
+      title: extractTitle(html, url),
+      textContent
+    };
+  } catch (cause) {
+    throw new ContentFetchError(url, cause, response);
   }
-
-  const html = await response.text();
-  const textContent = htmlToText(html);
-
-  return {
-    title: extractTitle(html, url),
-    textContent
-  };
 }

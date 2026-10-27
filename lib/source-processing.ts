@@ -31,6 +31,18 @@ export async function normalizeSourceInput(input: {
       throw new Error("URL is required for web link sources.");
     }
 
+    // An explicit paste is the fallback when the publisher refuses server-side retrieval.
+    // Retain the original URL for attribution, without trying to fetch it again.
+    if (input.rawText?.trim()) {
+      const text = input.rawText.trim();
+      return {
+        title: input.url,
+        rawText: text,
+        parsedText: text,
+        metadata: { fetchedFrom: input.url, retrievalMethod: "pasted_text" }
+      };
+    }
+
     const article = await fetchReadableContent(input.url);
 
     return {

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createSourceRecord, materializePrivateBooksForSource } from "@/lib/data";
 import { prisma } from "@/lib/prisma";
 import { getRequiredSessionUser } from "@/lib/session-user";
+import { ContentFetchError, sourceErrorDiagnostics } from "@/lib/content-fetch";
 import {
   enrichBookEmbeddings,
   enrichBookSummaries,
@@ -94,7 +95,13 @@ export async function POST(request: Request) {
       extractedBooks: embeddedBooks.map(({ title, author, bookSummary, tags }) => ({ title, author, bookSummary, tags }))
     });
   } catch (error) {
-    console.error("Failed to submit source", error);
+    console.error("Failed to submit source", sourceErrorDiagnostics(error));
+    if (error instanceof ContentFetchError) {
+      return NextResponse.json(
+        { error: error.message, code: "SOURCE_FETCH_FAILED", canPasteText: true },
+        { status: 502 }
+      );
+    }
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Unknown submission error"

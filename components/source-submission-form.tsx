@@ -24,6 +24,8 @@ export function SourceSubmissionForm() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<SubmissionResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showPasteFallback, setShowPasteFallback] = useState(false);
+  const [pastedArticleText, setPastedArticleText] = useState("");
 
   async function onMarkdownFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -42,13 +44,18 @@ export function SourceSubmissionForm() {
     setResult(null);
 
     try {
+      if (type === "web_link" && showPasteFallback && !pastedArticleText.trim()) {
+        throw new Error("Paste the article text before importing.");
+      }
       const response = await fetch("/api/sources", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type,
           title: title.trim() || undefined,
-          rawText: rawText.trim() || undefined,
+          rawText: type === "web_link"
+            ? (showPasteFallback ? pastedArticleText.trim() || undefined : undefined)
+            : rawText.trim() || undefined,
           url: url.trim() || undefined,
           sourceFilename: fileName.trim() || undefined,
           sourceMetadata: metadata ? JSON.parse(metadata) : undefined
@@ -56,7 +63,8 @@ export function SourceSubmissionForm() {
       });
 
       if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        const payload = (await response.json().catch(() => null)) as { error?: string; canPasteText?: boolean } | null;
+        if (payload?.canPasteText && type === "web_link") setShowPasteFallback(true);
         throw new Error(payload?.error || "Failed to submit source");
       }
 
@@ -66,6 +74,8 @@ export function SourceSubmissionForm() {
       setUrl("");
       setFileName("");
       setMetadata("");
+      setShowPasteFallback(false);
+      setPastedArticleText("");
     } catch (submissionError) {
       setError(submissionError instanceof Error ? submissionError.message : "Submission failed");
     } finally {
@@ -103,15 +113,41 @@ export function SourceSubmissionForm() {
         </div>
 
         {type === "web_link" ? (
-          <label className="mt-4 block space-y-2 text-sm">
-            <span className="text-stone-700">URL</span>
-            <input
-              className="w-full rounded-2xl border border-stone-200 bg-white px-4 py-3"
-              value={url}
-              onChange={(event) => setUrl(event.target.value)}
-              placeholder="https://..."
-            />
-          </label>
+          <div>
+            <label className="mt-4 block space-y-2 text-sm">
+              <span className="text-stone-700">URL</span>
+              <input
+                className="w-full rounded-2xl border border-stone-200 bg-white px-4 py-3"
+                value={url}
+                onChange={(event) => setUrl(event.target.value)}
+                placeholder="https://..."
+                type="url"
+                required
+              />
+            </label>
+            {showPasteFallback ? (
+              <div>
+                <label className="mt-4 block space-y-2 text-sm">
+                  <span className="text-stone-700">Paste article text</span>
+                  <span className="block text-stone-600">Copy the article from your browser. We’ll extract books from this text and keep the URL as the source.</span>
+                  <textarea
+                    className="min-h-64 w-full rounded-[1.25rem] border border-stone-200 bg-white px-4 py-3"
+                    value={pastedArticleText}
+                    onChange={(event) => setPastedArticleText(event.target.value)}
+                    placeholder="Paste the article text here..."
+                    required
+                  />
+                </label>
+                <button type="button" className="mt-3 text-sm underline" onClick={() => setShowPasteFallback(false)}>
+                  Try fetching the URL instead
+                </button>
+              </div>
+            ) : (
+              <button type="button" className="mt-3 text-sm underline" onClick={() => setShowPasteFallback(true)}>
+                Paste article text instead
+              </button>
+            )}
+          </div>
         ) : (
           <label className="mt-4 block space-y-2 text-sm">
             <span className="text-stone-700">{type === "markdown" ? "Markdown content" : "Email content"}</span>
@@ -164,10 +200,10 @@ export function SourceSubmissionForm() {
           disabled={loading}
           className="mt-6 w-full rounded-full bg-stone-900 px-5 py-3.5 text-sm font-medium text-white disabled:opacity-60 sm:w-auto"
         >
-          {loading ? "Submitting..." : "Submit source"}
+          {loading ? "Submitting..." : type === "web_link" && showPasteFallback ? "Import pasted article" : "Submit source"}
         </button>
 
-        {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
+        {error ? <p role="alert" className="mt-3 text-sm text-red-600">{error}</p> : null}
       </form>
 
       <aside className="rounded-[1.75rem] border border-stone-200 bg-stone-900 p-5 text-stone-50 md:rounded-[2rem] md:p-6">
