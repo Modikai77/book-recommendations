@@ -25,6 +25,7 @@ export function sourceErrorDiagnostics(error: unknown, depth = 0): Record<string
   const details: Record<string, unknown> = {
     name: redactDiagnostic(error.name),
     message: redactDiagnostic(error.message),
+    ...(error instanceof ContentFetchError ? { upstream: error.upstream } : {}),
     stack: error.stack ? redactDiagnostic(error.stack) : undefined
   };
   // Preserve useful network details without serializing arbitrary error/request objects.
@@ -37,7 +38,6 @@ export function sourceErrorDiagnostics(error: unknown, depth = 0): Record<string
   if (error instanceof AggregateError) {
     details.errors = error.errors.map((item) => sourceErrorDiagnostics(item, depth + 1));
   }
-  if (error instanceof ContentFetchError) details.upstream = error.upstream;
   return details;
 }
 

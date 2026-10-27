@@ -99,3 +99,11 @@ behavior are unchanged; no proxy or automatic blocking bypass is attempted.
 `tests/source-submission.test.ts` exercises both normal and paste-text submissions
 through the route and processing pipeline with mocked authentication and database
 boundaries. It does not establish that a production database write succeeded.
+
+Each submission now has a UUID reference shared by the browser and server. Safe
+`Source submission` events record stage start/end, elapsed time, selected model
+names, extracted book count, and save success. They do not log article text,
+titles, user identity, headers, or cookies. If the browser loses the connection,
+use its import reference to find whether processing stopped or saved successfully
+before retrying. The selected text model is logged with the input event, and the
+extraction response's actual model is logged on completion.

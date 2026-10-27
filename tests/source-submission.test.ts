@@ -34,6 +34,7 @@ function request(rawText?: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.spyOn(console, "info").mockImplementation(() => {});
   vi.stubEnv("OPENAI_API_KEY", "");
   db.source.create.mockImplementation(async ({ data }) => ({ ...data, id: "source-test" }));
   db.book.upsert.mockImplementation(async ({ create }) => ({ ...create, id: "book-test", metadata: null }));
@@ -86,6 +87,10 @@ describe("POST /api/sources web links", () => {
       create: expect.objectContaining({ title: "Small Things Like These", author: "Claire Keegan", catalogStatus: "PRIVATE_ONLY" })
     }));
     expect(db.recommendationMention.create).toHaveBeenCalledWith({ data: expect.objectContaining({ sourceId: "source-test", bookId: "book-test" }) });
+    expect(console.info).toHaveBeenCalledWith("Source submission", expect.objectContaining({
+      stage: "save_books", event: "succeeded", sourceId: "source-test", bookCount: 1
+    }));
+    expect(JSON.stringify(vi.mocked(console.info).mock.calls)).not.toContain(text);
   });
 
   it("still submits a normal accessible web article", async () => {
@@ -96,5 +101,21 @@ describe("POST /api/sources web links", () => {
     expect((await response.json()).extractedBooks).toHaveLength(1);
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(db.source.create).toHaveBeenCalledOnce();
+  });
+
+  it("correlates a failed stage with the browser reference without logging pasted text or cookies", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const original = request("Small Things Like These by Claire Keegan");
+    const requestId = "bdfbd12d-f2ca-4471-8e02-bdb142f04782";
+    original.headers.set("x-submission-id", requestId);
+    original.headers.set("cookie", "session=COOKIE_SECRET");
+    db.source.create.mockRejectedValueOnce(new Error("Database unavailable"));
+    const response = await submit(original);
+    expect(response.status).toBe(500);
+    expect(await response.json()).toMatchObject({ requestId, error: "Database unavailable" });
+    expect(log).toHaveBeenCalledWith("Failed to submit source", expect.objectContaining({ requestId, stage: "save_source" }));
+    const logs = JSON.stringify([vi.mocked(console.info).mock.calls, log.mock.calls]);
+    expect(logs).not.toMatch(/COOKIE_SECRET|Small Things Like These|Claire Keegan/);
+    expect(db.sourceExtraction.create).not.toHaveBeenCalled();
   });
 });

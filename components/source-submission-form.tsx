@@ -26,6 +26,7 @@ export function SourceSubmissionForm() {
   const [error, setError] = useState<string | null>(null);
   const [showPasteFallback, setShowPasteFallback] = useState(false);
   const [pastedArticleText, setPastedArticleText] = useState("");
+  const [submissionReference, setSubmissionReference] = useState<string | null>(null);
 
   async function onMarkdownFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -42,14 +43,17 @@ export function SourceSubmissionForm() {
     setLoading(true);
     setError(null);
     setResult(null);
+    setSubmissionReference(null);
 
     try {
       if (type === "web_link" && showPasteFallback && !pastedArticleText.trim()) {
         throw new Error("Paste the article text before importing.");
       }
+      const requestId = crypto.randomUUID();
+      setSubmissionReference(requestId);
       const response = await fetch("/api/sources", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-Submission-Id": requestId },
         body: JSON.stringify({
           type,
           title: title.trim() || undefined,
@@ -65,7 +69,14 @@ export function SourceSubmissionForm() {
       if (!response.ok) {
         const payload = (await response.json().catch(() => null)) as { error?: string; canPasteText?: boolean } | null;
         if (payload?.canPasteText && type === "web_link") setShowPasteFallback(true);
-        throw new Error(payload?.error || "Failed to submit source");
+        const message = response.status === 504
+          ? "The import exceeded the server’s time limit. Your pasted text has been kept."
+          : response.status === 413
+            ? "The pasted article is too large. Paste just the book recommendations and try again."
+            : response.status === 401
+              ? "Your session has expired. Sign in again before importing."
+              : `The server could not complete the import (HTTP ${response.status}).`;
+        throw new Error(payload?.error || message);
       }
 
       const payload = (await response.json()) as SubmissionResponse;
@@ -76,8 +87,12 @@ export function SourceSubmissionForm() {
       setMetadata("");
       setShowPasteFallback(false);
       setPastedArticleText("");
+      setSubmissionReference(null);
     } catch (submissionError) {
-      setError(submissionError instanceof Error ? submissionError.message : "Submission failed");
+      const connectionFailed = submissionError instanceof TypeError && /load failed|failed to fetch|network|fetch failed/i.test(submissionError.message);
+      setError(connectionFailed
+        ? "The connection ended before a result arrived. Your text is still here. Check your library before retrying: the import may have continued on the server."
+        : submissionError instanceof Error ? submissionError.message : "Submission failed");
     } finally {
       setLoading(false);
     }
@@ -204,6 +219,9 @@ export function SourceSubmissionForm() {
         </button>
 
         {error ? <p role="alert" className="mt-3 text-sm text-red-600">{error}</p> : null}
+        {submissionReference && (loading || error) ? (
+          <p className="mt-2 break-all text-xs text-stone-500">Import reference: {submissionReference}</p>
+        ) : null}
       </form>
 
       <aside className="rounded-[1.75rem] border border-stone-200 bg-stone-900 p-5 text-stone-50 md:rounded-[2rem] md:p-6">
