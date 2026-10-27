@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { fetchReadableContent } from "@/lib/content-fetch";
 import { normalizeObsidianMarkdown } from "@/lib/markdown";
-import { createEmbeddings, getOpenAIClient, OPENAI_DEFAULT_MODEL } from "@/lib/openai";
+import { createEmbeddings, getOpenAIClient, OPENAI_TEXT_OPTIONS } from "@/lib/openai";
 import type { ExtractedBookCandidate, SourceType } from "@/lib/types";
 
 const extractedBookSchema = z.object({
@@ -128,7 +128,7 @@ export async function extractBooksFromSource(input: {
   }
 
   const completion = await client.responses.create({
-    model: process.env.OPENAI_EXTRACTION_MODEL ?? OPENAI_DEFAULT_MODEL,
+    ...OPENAI_TEXT_OPTIONS,
     input: [
       {
         role: "system",
@@ -338,10 +338,7 @@ export async function enrichBookSummaries(input: {
 
   try {
     const response = await client.responses.create({
-      model:
-        process.env.OPENAI_SUMMARY_MODEL ??
-        process.env.OPENAI_EXTRACTION_MODEL ??
-        OPENAI_DEFAULT_MODEL,
+      ...OPENAI_TEXT_OPTIONS,
       tools: [{ type: "web_search" }],
       tool_choice: "auto",
       input: [
@@ -521,11 +518,7 @@ export async function enrichBookTags(books: ExtractedBookCandidate[]) {
 
   try {
     const response = await client.responses.create({
-      model:
-        process.env.OPENAI_TAGGING_MODEL ??
-        process.env.OPENAI_SUMMARY_MODEL ??
-        process.env.OPENAI_EXTRACTION_MODEL ??
-        OPENAI_DEFAULT_MODEL,
+      ...OPENAI_TEXT_OPTIONS,
       input: [
         {
           role: "system",
@@ -646,10 +639,7 @@ export async function regenerateSingleBookSummary(input: {
   }
 
   const response = await client.responses.create({
-    model:
-      process.env.OPENAI_SUMMARY_MODEL ??
-      process.env.OPENAI_EXTRACTION_MODEL ??
-      OPENAI_DEFAULT_MODEL,
+    ...OPENAI_TEXT_OPTIONS,
     tools: [{ type: "web_search" }],
     tool_choice: "auto",
     input: [

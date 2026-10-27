@@ -1,6 +1,13 @@
 import OpenAI from "openai";
 
-export const OPENAI_DEFAULT_MODEL = "gpt-5.5";
+export const OPENAI_DEFAULT_MODEL = "gpt-6.1-sol";
+
+// Keep every text task on the requested model, including deployments that still
+// have legacy per-task model variables configured.
+export const OPENAI_TEXT_OPTIONS = {
+  model: OPENAI_DEFAULT_MODEL,
+  reasoning: { effort: "low" as const }
+};
 
 export function getOpenAIClient() {
   const apiKey = process.env.OPENAI_API_KEY;

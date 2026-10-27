@@ -1,6 +1,6 @@
 import type { BookRecord, ParsedRecommendationQuery, RecommendationReason, UserTasteProfile } from "@/lib/types";
 import { defaultParsedQuery } from "@/lib/demo-data";
-import { getOpenAIClient, OPENAI_DEFAULT_MODEL } from "@/lib/openai";
+import { getOpenAIClient, OPENAI_TEXT_OPTIONS } from "@/lib/openai";
 
 const genreKeywords = ["fiction", "nonfiction", "mystery", "speculative", "literary", "history", "memoir"];
 const toneKeywords = ["gentle", "funny", "dark", "reflective", "dreamlike", "fast", "quiet", "tender"];
@@ -60,10 +60,7 @@ export async function parseRecommendationQueryWithAI(query: string): Promise<Par
 
   try {
     const response = await client.responses.create({
-      model:
-        process.env.OPENAI_RECOMMENDATION_MODEL ??
-        process.env.OPENAI_EXTRACTION_MODEL ??
-        OPENAI_DEFAULT_MODEL,
+      ...OPENAI_TEXT_OPTIONS,
       input: [
         {
           role: "system",
