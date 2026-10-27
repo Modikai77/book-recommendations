@@ -16,6 +16,8 @@ vi.mock("@/lib/session-user", () => ({
 }));
 
 import { POST } from "@/app/api/sources/route";
+import * as processing from "@/lib/source-processing";
+import { readSubmissionResponse, SubmissionError } from "@/lib/source-submission-client";
 
 async function submit(request: Request) {
   const response = await POST(request);
@@ -45,6 +47,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
+  vi.useRealTimers();
 });
 
 describe("POST /api/sources web links", () => {
@@ -117,5 +120,67 @@ describe("POST /api/sources web links", () => {
     const logs = JSON.stringify([vi.mocked(console.info).mock.calls, log.mock.calls]);
     expect(logs).not.toMatch(/COOKIE_SECRET|Small Things Like These|Claire Keegan/);
     expect(db.sourceExtraction.create).not.toHaveBeenCalled();
+  });
+
+  it("delivers heartbeats throughout a 131-second summary request, followed by the saved result", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(processing, "enrichBookSummaries").mockImplementationOnce(async (input) => {
+      await new Promise((resolve) => setTimeout(resolve, 131_000));
+      return input.books;
+    });
+    const original = request("Small Things Like These by Claire Keegan");
+    original.headers.set("accept", "application/x-ndjson");
+    const response = await submit(original);
+    expect(response.headers.get("content-type")).toContain("application/x-ndjson");
+    expect(response.headers.get("cache-control")).toContain("no-transform");
+    let heartbeatCount = 0;
+    const monitored = new Response(response.body!.pipeThrough(new TransformStream({
+      transform(chunk, controller) {
+        if (new TextDecoder().decode(chunk).includes('"heartbeat"')) heartbeatCount++;
+        controller.enqueue(chunk);
+      }
+    })), { headers: response.headers });
+    const progress = vi.fn();
+    const resultPromise = readSubmissionResponse(monitored, progress);
+    await vi.advanceTimersByTimeAsync(130_000);
+    expect(heartbeatCount).toBeGreaterThanOrEqual(14);
+    expect(progress).toHaveBeenCalledWith(expect.objectContaining({ stage: "summaries" }));
+    expect(db.source.create).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(await resultPromise).toMatchObject({ sourceId: "source-test", extractedBooks: [{ title: "Small Things Like These", author: "Claire Keegan" }] });
+    expect(db.recommendationMention.create).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("reports upstream denial inside a stream and still enables pasted text", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("Blocked", { status: 403, statusText: "Forbidden" })));
+    const original = request();
+    original.headers.set("accept", "application/x-ndjson");
+    const response = await submit(original);
+    await expect(readSubmissionResponse(response, () => {})).rejects.toMatchObject({
+      name: "SubmissionError", canPasteText: true, message: expect.stringContaining("HTTP 403 Forbidden")
+    } satisfies Partial<SubmissionError>);
+    expect(db.source.create).not.toHaveBeenCalled();
+  });
+
+  it("finishes saving when the browser disconnects during processing", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(processing, "enrichBookSummaries").mockImplementationOnce(async (input) => {
+      await new Promise((resolve) => setTimeout(resolve, 30_000));
+      return input.books;
+    });
+    const original = request("Small Things Like These by Claire Keegan");
+    original.headers.set("accept", "application/x-ndjson");
+    const response = await submit(original);
+    const reader = response.body!.getReader();
+    let chunk = "";
+    while (!chunk.includes('"stage":"summaries"')) {
+      chunk = new TextDecoder().decode((await reader.read()).value);
+    }
+    await reader.cancel();
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(db.recommendationMention.create).toHaveBeenCalledOnce();
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

@@ -1,18 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
+import { readSubmissionResponse, SubmissionError, submissionProgressLabel, type SubmissionResult } from "@/lib/source-submission-client";
 
 const sourceTypes = [
   { value: "email", label: "Email" },
   { value: "web_link", label: "Web link" },
   { value: "markdown", label: "Markdown / Obsidian" }
 ] as const;
-
-type SubmissionResponse = {
-  sourceId: string;
-  status: string;
-  extractedBooks?: Array<{ title: string; author: string }>;
-};
 
 export function SourceSubmissionForm() {
   const [type, setType] = useState<(typeof sourceTypes)[number]["value"]>("email");
@@ -22,11 +18,12 @@ export function SourceSubmissionForm() {
   const [fileName, setFileName] = useState("");
   const [metadata, setMetadata] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<SubmissionResponse | null>(null);
+  const [result, setResult] = useState<SubmissionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showPasteFallback, setShowPasteFallback] = useState(false);
   const [pastedArticleText, setPastedArticleText] = useState("");
   const [submissionReference, setSubmissionReference] = useState<string | null>(null);
+  const [progress, setProgress] = useState("");
 
   async function onMarkdownFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -44,6 +41,7 @@ export function SourceSubmissionForm() {
     setError(null);
     setResult(null);
     setSubmissionReference(null);
+    setProgress("Starting import…");
 
     try {
       if (type === "web_link" && showPasteFallback && !pastedArticleText.trim()) {
@@ -53,7 +51,7 @@ export function SourceSubmissionForm() {
       setSubmissionReference(requestId);
       const response = await fetch("/api/sources", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Submission-Id": requestId },
+        headers: { "Content-Type": "application/json", "X-Submission-Id": requestId, Accept: "application/x-ndjson" },
         body: JSON.stringify({
           type,
           title: title.trim() || undefined,
@@ -66,20 +64,7 @@ export function SourceSubmissionForm() {
         })
       });
 
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as { error?: string; canPasteText?: boolean } | null;
-        if (payload?.canPasteText && type === "web_link") setShowPasteFallback(true);
-        const message = response.status === 504
-          ? "The import exceeded the server’s time limit. Your pasted text has been kept."
-          : response.status === 413
-            ? "The pasted article is too large. Paste just the book recommendations and try again."
-            : response.status === 401
-              ? "Your session has expired. Sign in again before importing."
-              : `The server could not complete the import (HTTP ${response.status}).`;
-        throw new Error(payload?.error || message);
-      }
-
-      const payload = (await response.json()) as SubmissionResponse;
+      const payload = await readSubmissionResponse(response, (event) => setProgress(submissionProgressLabel(event)));
       setResult(payload);
       setRawText("");
       setUrl("");
@@ -89,6 +74,9 @@ export function SourceSubmissionForm() {
       setPastedArticleText("");
       setSubmissionReference(null);
     } catch (submissionError) {
+      if (submissionError instanceof SubmissionError && submissionError.canPasteText && type === "web_link") {
+        setShowPasteFallback(true);
+      }
       const connectionFailed = submissionError instanceof TypeError && /load failed|failed to fetch|network|fetch failed/i.test(submissionError.message);
       setError(connectionFailed
         ? "The connection ended before a result arrived. Your text is still here. Check your library before retrying: the import may have continued on the server."
@@ -219,6 +207,7 @@ export function SourceSubmissionForm() {
         </button>
 
         {error ? <p role="alert" className="mt-3 text-sm text-red-600">{error}</p> : null}
+        {loading ? <p role="status" className="mt-3 text-sm text-stone-600">{progress}</p> : null}
         {submissionReference && (loading || error) ? (
           <p className="mt-2 break-all text-xs text-stone-500">Import reference: {submissionReference}</p>
         ) : null}
@@ -235,9 +224,9 @@ export function SourceSubmissionForm() {
 
         {result ? (
           <div className="mt-6 rounded-[1.25rem] bg-white/10 p-4 md:rounded-[1.5rem]">
-            <p className="text-xs uppercase tracking-[0.3em] text-stone-300">Queued</p>
-            <p className="mt-2 text-sm">Source ID: {result.sourceId}</p>
-            <p className="text-sm">Status: {result.status}</p>
+            <p className="text-xs uppercase tracking-[0.3em] text-stone-300">Imported</p>
+            <p className="mt-2 text-sm">{result.extractedBooks?.length ?? 0} books imported into your private library.</p>
+            <Link href="/lists" className="mt-2 inline-block text-sm underline">View your library</Link>
             <div className="mt-3 space-y-2 text-sm">
               {(result.extractedBooks || []).map((book) => (
                 <p key={`${book.title}-${book.author}`}>

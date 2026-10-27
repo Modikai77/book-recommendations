@@ -107,3 +107,13 @@ titles, user identity, headers, or cookies. If the browser loses the connection,
 use its import reference to find whether processing stopped or saved successfully
 before retrying. The selected text model is logged with the input event, and the
 extraction response's actual model is logged on completion.
+
+The form requests `application/x-ndjson` for imports. The authenticated route
+streams stage progress and a heartbeat every 10 seconds, followed by a terminal
+`result` or `error` event. This keeps the connection active while summary
+generation runs; a production import of 26 books took 131 seconds, including
+98 seconds for summaries, and completed saving after the browser reported a lost
+connection. Streaming errors preserve the paste-text fallback. Clients that do
+not request streaming still receive the existing JSON/status-code contract.
+No automatic submission retries are performed. A disconnected stream does not
+interrupt writes already running; check the request reference before retrying.
