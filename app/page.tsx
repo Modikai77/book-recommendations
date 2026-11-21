@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { AuthPanel } from "@/components/auth-panel";
 
 export default function HomePage() {
@@ -15,20 +14,6 @@ export default function HomePage() {
               Ingest newsletters, essays, and Obsidian notes. Extract recommended books, summarize them, tag them, and
               return personalized matches for prompts like “short fiction holiday read”.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:gap-4">
-              <Link
-                href="/dashboard"
-                className="w-full rounded-full bg-stone-900 px-6 py-3 text-center text-sm font-medium text-white sm:w-auto"
-              >
-                <span className="text-white">Enter app</span>
-              </Link>
-              <Link
-                href="/submit-source"
-                className="w-full rounded-full border border-stone-300 px-6 py-3 text-center text-sm font-medium sm:w-auto"
-              >
-                Submit a source
-              </Link>
-            </div>
           </div>
           <AuthPanel />
         </div>
