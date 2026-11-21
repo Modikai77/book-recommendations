@@ -17,3 +17,12 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+/* Long titles, source URLs and generated recommendations must fit their cards. */
+main {
+  overflow-wrap: anywhere;
+}
+
+main .grid > * {
+  min-width: 0;
+}

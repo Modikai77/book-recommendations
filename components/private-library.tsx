@@ -246,7 +246,7 @@ export function PrivateLibrary({ books, initialQuery = "", initialSourceFilter =
 
       {view === "library" ? (
         <>
-          <div className="grid gap-3 rounded-[1.75rem] border border-stone-200 bg-white/80 p-4 md:grid-cols-[1.5fr_1fr_1fr_auto] md:items-end md:gap-4 md:rounded-[2rem] md:p-5">
+          <div className="grid gap-3 rounded-[1.75rem] border border-stone-200 bg-white/80 p-4 sm:grid-cols-2 xl:grid-cols-[1.5fr_1fr_1fr_auto] md:items-end md:gap-4 md:rounded-[2rem] md:p-5">
             <label className="space-y-2 text-sm">
               <span className="text-stone-700">Search title, tags, description, source</span>
               <input

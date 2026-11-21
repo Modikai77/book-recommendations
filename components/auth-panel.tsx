@@ -51,6 +51,24 @@ export function AuthPanel() {
 
   return (
     <div className="rounded-[1.75rem] border border-stone-200/70 bg-white/75 p-5 shadow-lg shadow-stone-900/5 sm:rounded-[2rem] sm:p-6">
+      <p id="google-hint" className="mb-2 text-center text-sm text-stone-600">
+        Recommended for sign-up and sign-in
+      </p>
+      <button
+        type="button"
+        aria-describedby="google-hint"
+        onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
+        className="flex w-full cursor-pointer items-center justify-center gap-3 rounded-full border border-stone-500 bg-white px-4 py-3 font-sans text-sm font-medium text-stone-900 shadow-sm transition hover:bg-stone-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 active:bg-stone-100"
+      >
+        <svg aria-hidden="true" viewBox="0 0 48 48" className="size-5 shrink-0">
+          <path fill="#4285F4" d="M43.61 24.46c0-1.36-.12-2.66-.35-3.92H24v7.42h11a9.4 9.4 0 0 1-4.08 6.17v5.12h6.6c3.86-3.55 6.09-8.78 6.09-14.79Z" />
+          <path fill="#34A853" d="M24 44c5.51 0 10.13-1.83 13.51-4.95l-6.6-5.12c-1.83 1.23-4.17 1.97-6.91 1.97-5.32 0-9.84-3.59-11.46-8.43H5.77v5.28A20.4 20.4 0 0 0 24 44Z" />
+          <path fill="#FBBC05" d="M12.54 27.47a12.3 12.3 0 0 1 0-7.85v-5.28H5.77a20 20 0 0 0 0 18.41Z" />
+          <path fill="#EA4335" d="M24 11.1c3 0 5.68 1.03 7.81 3.07l5.85-5.85C34.12 5.02 29.51 3 24 3A20.4 20.4 0 0 0 5.77 14.34l6.77 5.28C14.16 14.69 18.68 11.1 24 11.1Z" />
+        </svg>
+        Continue with Google
+      </button>
+      <p className="my-5 text-center text-sm text-stone-600">Or continue with email</p>
       <div className="flex gap-2 rounded-full bg-stone-100 p-1 text-sm">
         <button
           type="button"
@@ -105,14 +123,6 @@ export function AuthPanel() {
 
         <button className="w-full rounded-full bg-stone-900 px-5 py-3.5 text-sm font-medium text-white" type="submit">
           {loading ? "Please wait..." : mode === "signup" ? "Create account" : "Sign in"}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => signIn("google", { callbackUrl: "/dashboard" })}
-          className="w-full rounded-full border border-stone-300 px-5 py-3.5 text-sm font-medium"
-        >
-          Continue with Google
         </button>
 
         {message ? <p className="text-sm text-red-600">{message}</p> : null}

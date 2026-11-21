@@ -18,7 +18,7 @@ type RecommendationItem = {
 };
 
 export function RecommendationForm({ initialPrompt }: { initialPrompt?: string }) {
-  const [query, setQuery] = useState(initialPrompt || "short fiction holiday read");
+  const [query, setQuery] = useState(initialPrompt ?? "");
   const [results, setResults] = useState<RecommendationItem[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -50,19 +50,20 @@ export function RecommendationForm({ initialPrompt }: { initialPrompt?: string }
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[1.1fr_1fr] lg:gap-6">
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.1fr_1fr] lg:gap-6">
       <form onSubmit={onSubmit} className="rounded-[1.75rem] border border-stone-200 bg-white/80 p-5 shadow-sm md:rounded-[2rem] md:p-6">
         <label className="block space-y-2">
           <span className="text-sm text-stone-700">Ask in natural language</span>
           <textarea
-            className="min-h-40 w-full rounded-[1.25rem] border border-stone-200 px-4 py-3 md:min-h-48 md:rounded-[1.5rem]"
+            className="min-h-40 w-full rounded-[1.25rem] border border-stone-200 px-4 py-3 placeholder:text-stone-500 md:min-h-48 md:rounded-[1.5rem]"
+            placeholder="e.g. short fiction holiday reads"
             maxLength={4000}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
         </label>
         <button
-          className="mt-4 w-full rounded-full bg-stone-900 px-5 py-3.5 text-sm font-medium text-white sm:w-auto"
+          className="mt-4 w-full rounded-full bg-stone-900 px-5 py-3.5 text-sm font-medium text-white disabled:opacity-50 sm:w-auto"
           type="submit" disabled={loading || query.trim().length < 2}
         >
           {loading ? "Thinking..." : "Get recommendations"}
