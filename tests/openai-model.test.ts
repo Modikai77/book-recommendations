@@ -22,14 +22,14 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 describe("GPT-6.1 Sol migration", () => {
-  it("uses Sol with low reasoning for every text API task even with stale deployment overrides", async () => {
+  it("uses Sol with low reasoning for imports and upgrades recommendation reasoning even with stale deployment overrides", async () => {
     const book = { title: "Small Things Like These", author: "Claire Keegan" };
     api.responses
       .mockResolvedValueOnce({ model: "gpt-6.1-sol", output_text: JSON.stringify({ books: [book] }) })
-      .mockResolvedValueOnce({ output_text: JSON.stringify({ books: [{ id: "0", ...book, summary: "A novel about moral courage in a small Irish town." }] }) })
+      .mockResolvedValueOnce({ output_text: JSON.stringify({ books: [{ id: "0", ...book, summary: "A novel about moral courage in a small Irish town.", traits: {form:"novel",length:null,themes:[],premise:null,pageCount:null,pageSource:null} }] }) })
       .mockResolvedValueOnce({ output_text: JSON.stringify({ books: [{ id: "0", tags: ["Fiction"] }] }) })
       .mockResolvedValueOnce({ output_text: JSON.stringify({ summary: "A novel about moral courage in a small Irish town." }) })
-      .mockResolvedValueOnce({ output_text: JSON.stringify({ originalQuery: "short fiction", desiredGenres: ["fiction"] }) });
+      .mockResolvedValueOnce({ output_text: JSON.stringify({ required: ["fiction"], requiredLength:"short", requiredForm:null, avoid: [], preferred: [], positiveSearch:"short fiction", minPages:null, maxPages:null, broaderQuery:null }) });
 
     const extraction = await extractBooksFromSource({ type: "email", parsedText: "Small Things Like These by Claire Keegan" });
     expect(extraction.modelName).toBe("gpt-6.1-sol");
@@ -37,12 +37,30 @@ describe("GPT-6.1 Sol migration", () => {
     expect((await enrichBookSummaries({ parsedText: "Book recommendations", books: [book] }))[0].bookSummary).toContain("moral courage");
     expect((await enrichBookTags([book]))[0].tags).toContain("Fiction");
     expect((await regenerateSingleBookSummary({ ...book, parsedText: "Book recommendations" })).summary).toContain("moral courage");
-    expect((await parseRecommendationQueryWithAI("short fiction")).desiredGenres).toEqual(["fiction"]);
+    expect((await parseRecommendationQueryWithAI("short fiction")).required).toEqual(["fiction"]);
 
     expect(api.responses).toHaveBeenCalledTimes(5);
-    for (const [payload] of api.responses.mock.calls) {
+    for (const [payload] of api.responses.mock.calls.slice(0,4)) {
       expect(payload).toMatchObject({ model: "gpt-6.1-sol", reasoning: { effort: "low" }, text: { format: { type: "json_schema" } } });
     }
+    expect(api.responses.mock.calls[4][0]).toMatchObject({model: "gpt-6.2-sol", reasoning: {effort:"medium"}});
     expect(api.embeddings).toHaveBeenCalledWith(expect.objectContaining({ model: "text-embedding-3-small" }));
   });
+});
+
+it("only persists page counts paired with a URL returned by web search", async () => {
+  const source = "https://publisher.example/books/edition";
+  const books = ["Heist", "Estate"].map(title => ({ title, author: "Author" }));
+  api.responses.mockResolvedValueOnce({
+    output: [{ type: "web_search_call", action: { type: "search", sources: [{ url: source }] } }],
+    output_text: JSON.stringify({ books: books.map((book, index) => ({
+      ...book, id: String(index), summary: "A short novel.",
+      traits: { form: "novel", length: "short", themes: [], premise: "An investigation.",
+        pageCount: 184, pageSource: index === 0 ? source : "https://unverified.example/edition" }
+    })) })
+  });
+  const enriched = await enrichBookSummaries({ parsedText: "", books });
+  expect(enriched[0].readingTraits).toMatchObject({ pageCount: 184, pageSource: source });
+  expect(enriched[1].readingTraits?.form).toBe("novel");
+  expect(enriched[1].readingTraits?.pageCount).toBeUndefined();
 });

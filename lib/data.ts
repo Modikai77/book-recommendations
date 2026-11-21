@@ -30,7 +30,7 @@ function serializeReadLog(
   };
 }
 
-export async function listBooksForUser(userId?: string): Promise<BookRecord[]> {
+export async function listBooksForUser(userId?: string, options?: { requireCatalogue: boolean }): Promise<BookRecord[]> {
   try {
     const books = await prisma.book.findMany({
       where: userId
@@ -77,7 +77,8 @@ export async function listBooksForUser(userId?: string): Promise<BookRecord[]> {
       tags: book.tags.map((entry) => entry.tag.label),
       catalogStatus: book.catalogStatus
     }));
-  } catch {
+  } catch (error) {
+    if (options?.requireCatalogue) throw error;
     return demoBooks;
   }
 }
@@ -134,7 +135,7 @@ export async function getTasteProfile(userId?: string): Promise<UserTasteProfile
     );
 
     if (!tasteBooks.size) {
-      return demoTasteProfile;
+      return buildTasteProfile(userId, []);
     }
 
     return buildTasteProfile(
@@ -156,7 +157,7 @@ export async function getTasteProfile(userId?: string): Promise<UserTasteProfile
       }))
     );
   } catch {
-    return demoTasteProfile;
+    return buildTasteProfile(userId, []);
   }
 }
 
@@ -213,6 +214,7 @@ export async function materializePrivateBooksForSource(input: {
           create: {
             summary: candidate.bookSummary || candidate.rationale || candidate.snippet || undefined,
             shortSummary: candidate.bookSummary || candidate.rationale || candidate.snippet || undefined,
+            readingTraits: candidate.readingTraits,
             embedding: candidate.embedding ?? undefined
           }
         }
@@ -222,18 +224,19 @@ export async function materializePrivateBooksForSource(input: {
       }
     });
 
-    if (book.metadata) {
-      await prisma.bookMetadata.update({
-        where: { bookId: book.id },
-        data: {
-          summary:
-            candidate.bookSummary || book.metadata.summary || candidate.rationale || candidate.snippet || undefined,
-          shortSummary:
-            candidate.bookSummary || book.metadata.shortSummary || candidate.rationale || candidate.snippet || undefined,
-          embedding: candidate.embedding ?? (book.metadata.embedding as Prisma.InputJsonValue | undefined) ?? undefined
-        }
-      });
-    }
+    const summary = candidate.bookSummary || book.metadata?.summary || candidate.rationale || candidate.snippet;
+    const oldTraits = (book.metadata?.readingTraits ?? {}) as BookReadingTraits;
+    const metadata = {
+      summary,
+      shortSummary: candidate.bookSummary || book.metadata?.shortSummary || summary,
+      readingTraits: candidate.readingTraits ? { ...oldTraits, ...candidate.readingTraits } : undefined,
+      embedding: candidate.embedding
+    };
+    await prisma.bookMetadata.upsert({
+      where: { bookId: book.id },
+      update: metadata,
+      create: { bookId: book.id, ...metadata }
+    });
 
     const existingMention = await prisma.recommendationMention.findFirst({
       where: {

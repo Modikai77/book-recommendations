@@ -14,7 +14,9 @@
     "prisma:migrate": "prisma migrate dev",
     "seed": "tsx prisma/seed.ts",
     "backfill:summaries": "tsx prisma/backfill-summaries.ts",
-    "backfill:tags": "tsx prisma/backfill-tags.ts"
+    "backfill:tags": "tsx prisma/backfill-tags.ts",
+    "backfill:reading-traits": "tsx --env-file-if-exists=.env prisma/backfill-reading-traits.ts",
+    "eval:recommendations": "tsx --env-file-if-exists=.env scripts/evaluate-recommendations.ts"
   },
   "keywords": [],
   "author": "",

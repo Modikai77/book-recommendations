@@ -117,3 +117,23 @@ connection. Streaming errors preserve the paste-text fallback. Clients that do
 not request streaming still receive the existing JSON/status-code contract.
 No automatic submission retries are performed. A disconnected stream does not
 interrupt writes already running; check the request reference before retrying.
+
+## Recommendation model and catalogue enrichment
+
+Recommendations use `gpt-6.2-sol` with medium reasoning. Set
+`MARGINALIA_RECOMMENDATION_MODEL` to override this independently of source imports.
+The recommendation endpoint requires a working OpenAI key and database.
+
+New imports request reading traits during summary generation. With the database
+and OpenAI key configured, run `npm run backfill:reading-traits` to enrich older
+books. It skips books with a recorded premise, preserves existing traits and
+reports unresolved books for retry. Page limits require a positive edition page
+count and a source URL. Unsupported lengths and page counts can remain unknown.
+
+For a side-by-side quality review, run
+`npm run eval:recommendations -- USER_ID PREVIOUS_CHECKOUT` with dependencies
+installed in the pre-upgrade checkout. This replays the family-saga example and
+up to 29 other distinct requests from that user against one snapshot of their
+visible catalogue and taste profile. It calls both models and prints the old
+and new top three for review. Score explicit requirement violations and which
+selection you would actually read. The output contains the user's reading history.

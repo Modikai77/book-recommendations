@@ -217,16 +217,22 @@ export async function extractBooksFromSource(input: {
   };
 }
 
+const traitsSchema = z.object({
+  form: z.string().nullable(),
+  length: z.enum(["short", "medium", "long"]).nullable(),
+  themes: z.array(z.string()),
+  premise: z.string().nullable(),
+  pageCount: z.number().int().positive().nullable(),
+  pageSource: z.string().nullable()
+});
 const summaryItemSchema = z.object({
   id: z.string(),
   title: z.string(),
   author: z.string(),
-  summary: z.string()
+  summary: z.string(),
+  traits: traitsSchema
 });
-
-const summaryPayloadSchema = z.object({
-  books: z.array(summaryItemSchema)
-});
+const summaryPayloadSchema = z.object({ books: z.array(summaryItemSchema) });
 
 export const CONTROLLED_BOOK_TAGS = [
   "Fiction",
@@ -323,7 +329,7 @@ export async function enrichBookSummaries(input: {
   sourceTitle?: string;
   recommender?: string;
   books: ExtractedBookCandidate[];
-}) {
+}): Promise<ExtractedBookCandidate[]> {
   if (!input.books.length) {
     return input.books;
   }
@@ -341,11 +347,12 @@ export async function enrichBookSummaries(input: {
       ...OPENAI_TEXT_OPTIONS,
       tools: [{ type: "web_search" }],
       tool_choice: "auto",
+      include: ["web_search_call.action.sources"],
       input: [
         {
           role: "system",
           content:
-            "Write a concise 1-2 sentence summary for each listed book. Use the source text when sufficient. If the source text does not explain the book, use web search to verify and fill the gap. Return one summary for every provided id and do not invent details."
+            "Write a concise 1-2 sentence summary for each listed book. Use the source text when sufficient. If the source text does not explain the book, use web search to verify and fill the gap. Describe the central premise, form, central themes and supported length. Leave uncertain fields null or empty. For pageCount use only an edition-specific page count you found on a publisher or library web page for this exact book and put its URL in pageSource. Never estimate a page count. Return one summary for every provided id and do not invent details."
         },
         {
           role: "user",
@@ -367,27 +374,8 @@ export async function enrichBookSummaries(input: {
         format: {
           type: "json_schema",
           name: "book_summaries",
-          schema: {
-            type: "object",
-            additionalProperties: false,
-            properties: {
-              books: {
-                type: "array",
-                items: {
-                  type: "object",
-                  additionalProperties: false,
-                  properties: {
-                    id: { type: "string" },
-                    title: { type: "string" },
-                    author: { type: "string" },
-                    summary: { type: "string" }
-                  },
-                  required: ["id", "title", "author", "summary"]
-                }
-              }
-            },
-            required: ["books"]
-          }
+          strict: true,
+          schema: z.toJSONSchema(summaryPayloadSchema, { target: "draft-7" })
         }
       }
     });
@@ -401,12 +389,34 @@ export async function enrichBookSummaries(input: {
     }
 
     const parsed = summaryPayloadSchema.parse(JSON.parse(rawOutput));
-    const summaryById = new Map(parsed.books.map((book) => [book.id, book.summary]));
-
-    return input.books.map((book, index) => ({
-      ...book,
-      bookSummary: summaryById.get(String(index)) || fallbackBookSummary(book)
-    }));
+    const searchedUrls = new Set<string>();
+    for (const item of response.output ?? []) {
+      if (item.type === "web_search_call" && item.action.type === "search") {
+        for (const source of item.action.sources ?? []) searchedUrls.add(source.url);
+      }
+      if (item.type === "message") {
+        for (const part of item.content) {
+          if (part.type === "output_text") for (const citation of part.annotations) {
+            if (citation.type === "url_citation") searchedUrls.add(citation.url);
+          }
+        }
+      }
+    }
+    const records = new Map(parsed.books.map(item => [item.id, item]));
+    return input.books.map((book, index) => {
+      const record = records.get(String(index));
+      if (!record || record.title !== book.title || record.author !== book.author) {
+        return { ...book, bookSummary: fallbackBookSummary(book) };
+      }
+      const t = record.traits;
+      return { ...book, bookSummary: record.summary, readingTraits: {
+        ...(t.form && { form: t.form }),
+        ...(t.length && { length: t.length }),
+        ...(t.premise && { premise: t.premise }),
+        ...(t.themes.length && { themes: t.themes }),
+        ...(t.pageCount && t.pageSource && searchedUrls.has(t.pageSource) && { pageCount: t.pageCount, pageSource: t.pageSource })
+      }};
+    });
   } catch {
     return input.books.map((book) => ({
       ...book,

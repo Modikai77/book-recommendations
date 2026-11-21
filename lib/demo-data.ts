@@ -1,4 +1,4 @@
-import type { BookRecord, ParsedRecommendationQuery, UserTasteProfile } from "@/lib/types";
+import type { BookRecord, UserTasteProfile } from "@/lib/types";
 
 export const demoBooks: BookRecord[] = [
   {
@@ -62,14 +62,3 @@ export const demoTasteProfile: UserTasteProfile = {
   preferredLengths: ["short"],
   summary: "Prefers short reflective fiction and elegant prose."
 };
-
-export const defaultParsedQuery = (query: string): ParsedRecommendationQuery => ({
-  originalQuery: query,
-  normalizedQuery: query.toLowerCase().trim(),
-  desiredGenres: [],
-  desiredTones: [],
-  desiredLengths: [],
-  themes: [],
-  exclusions: [],
-  semanticSummary: query.trim()
-});

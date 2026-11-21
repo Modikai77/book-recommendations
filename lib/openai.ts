@@ -9,6 +9,11 @@ export const OPENAI_TEXT_OPTIONS = {
   reasoning: { effort: "low" as const }
 };
 
+export const OPENAI_RECOMMENDATION_OPTIONS = {
+  model: process.env.MARGINALIA_RECOMMENDATION_MODEL || "gpt-6.2-sol",
+  reasoning: { effort: "medium" as const }
+};
+
 export function getOpenAIClient() {
   const apiKey = process.env.OPENAI_API_KEY;
 

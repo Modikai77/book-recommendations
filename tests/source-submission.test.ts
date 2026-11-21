@@ -6,6 +6,7 @@ const db = vi.hoisted(() => ({
   source: { create: vi.fn() },
   sourceExtraction: { create: vi.fn() },
   book: { upsert: vi.fn() },
+  bookMetadata: { upsert: vi.fn() },
   recommendationMention: { findFirst: vi.fn(), create: vi.fn() },
   tag: { upsert: vi.fn() },
   bookTag: { upsert: vi.fn() }

@@ -4,6 +4,7 @@ export type ExtractedBookCandidate = {
   title: string;
   author: string;
   bookSummary?: string;
+  readingTraits?: BookReadingTraits;
   embedding?: number[];
   confidence?: number;
   snippet?: string;
@@ -13,6 +14,10 @@ export type ExtractedBookCandidate = {
 };
 
 export type BookReadingTraits = {
+  form?: string;
+  premise?: string;
+  pageCount?: number;
+  pageSource?: string;
   genre?: string[];
   tone?: string[];
   themes?: string[];
@@ -25,17 +30,6 @@ export type BookTagAssignment = {
   tag: string;
   score: number;
   source: "llm" | "admin" | "user";
-};
-
-export type ParsedRecommendationQuery = {
-  originalQuery: string;
-  normalizedQuery: string;
-  desiredGenres: string[];
-  desiredTones: string[];
-  desiredLengths: string[];
-  themes: string[];
-  exclusions: string[];
-  semanticSummary: string;
 };
 
 export type RecommendationReason = {

@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getTasteProfile, listBooksForUser } from "@/lib/data";
-import { createEmbeddings } from "@/lib/openai";
 import { prisma } from "@/lib/prisma";
-import { parseRecommendationQueryWithAI, rankRecommendations } from "@/lib/recommendations";
+import { recommendBooks } from "@/lib/recommendations";
 import { getRequiredSessionUser } from "@/lib/session-user";
 
 const querySchema = z.object({
-  query: z.string().min(2),
+  query: z.string().trim().min(2).max(4000),
   includePrivate: z.boolean().optional()
 });
 
@@ -17,13 +16,21 @@ export async function POST(request: Request) {
     return sessionResult.error;
   }
 
-  const payload = querySchema.parse(await request.json());
+  const parsed = querySchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: "Enter a request between 2 and 4,000 characters." }, { status: 400 });
+  const payload = parsed.data;
   const userId = sessionResult.user.id;
-  const books = await listBooksForUser(payload.includePrivate ? userId : undefined);
-  const tasteProfile = await getTasteProfile(userId);
-  const parsedQuery = await parseRecommendationQueryWithAI(payload.query);
-  const [queryVector] = await createEmbeddings([parsedQuery.semanticSummary || payload.query]);
-  const ranked = rankRecommendations(books, parsedQuery, tasteProfile, queryVector);
+  let recommendation: Awaited<ReturnType<typeof recommendBooks>>;
+  try {
+    const [books, taste] = await Promise.all([
+      listBooksForUser(payload.includePrivate ? userId : undefined, { requireCatalogue: true }),
+      getTasteProfile(userId)
+    ]);
+    recommendation = await recommendBooks(payload.query, books, taste);
+  } catch {
+    return NextResponse.json({ error: "Marginalia couldn’t check your catalogue. Please try again." }, { status: 503 });
+  }
+  const { intent: parsedQuery, results: ranked } = recommendation;
 
   try {
     const query = await prisma.recommendationQuery.create({
@@ -50,6 +57,7 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({
+    intent: parsedQuery,
     results: ranked.map((result) => ({
       book: {
         id: result.book.id,
@@ -60,7 +68,7 @@ export async function POST(request: Request) {
       },
       score: result.score,
       reason: result.reason,
-      parsedQuery: result.parsedQuery
+      parsedQuery
     }))
   });
 }
