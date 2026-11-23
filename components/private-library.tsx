@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
+import { SourceName } from "@/components/source-name";
 import { format } from "date-fns";
 import { BookOpenCheck, CalendarDays, Check, Star, X } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -35,7 +36,7 @@ export function PrivateLibrary({ books, initialQuery = "", initialSourceFilter =
   );
   const [view, setView] = useState<LibraryView>("library");
   const [query, setQuery] = useState(initialQuery);
-  const [sourceFilter, setSourceFilter] = useState(initialSourceFilter);
+  const [sourceFilter, setSourceFilter] = useState(() => books.find(book => book.sourceTitle === initialSourceFilter)?.editableSourceId ?? initialSourceFilter);
   const [tagFilter, setTagFilter] = useState(initialTagFilter);
   const [showReadBooks, setShowReadBooks] = useState(false);
   const [readLogSort, setReadLogSort] = useState<ReadLogSort>("readAtDesc");
@@ -53,7 +54,10 @@ export function PrivateLibrary({ books, initialQuery = "", initialSourceFilter =
   }, [books]);
 
   const sourceOptions = useMemo(
-    () => ["all", ...new Set(libraryBooks.map((book) => book.sourceTitle).filter(Boolean) as string[])],
+    () => Array.from(new Map(libraryBooks.flatMap(book => {
+      const value = book.editableSourceId ?? book.sourceTitle;
+      return value ? [[value, book.sourceTitle || "Untitled source"] as const] : [];
+    }))),
     [libraryBooks]
   );
   const tagOptions = useMemo(
@@ -75,7 +79,7 @@ export function PrivateLibrary({ books, initialQuery = "", initialSourceFilter =
           .filter(Boolean)
           .some((value) => value!.toLowerCase().includes(normalized));
 
-      const matchesSource = sourceFilter === "all" || book.sourceTitle === sourceFilter;
+      const matchesSource = sourceFilter === "all" || (book.editableSourceId ?? book.sourceTitle) === sourceFilter;
       const matchesTag = tagFilter === "all" || (book.tags || []).includes(tagFilter);
 
       return matchesQuery && matchesSource && matchesTag;
@@ -120,6 +124,10 @@ export function PrivateLibrary({ books, initialQuery = "", initialSourceFilter =
         setPendingAction(null);
       }
     });
+  }
+
+  function renameSource(id: string, title: string) {
+    setLibraryBooks(items => items.map(book => book.editableSourceId === id ? { ...book, sourceTitle: title } : book));
   }
 
   function openReadDialog(book: BookRecord) {
@@ -266,9 +274,10 @@ export function PrivateLibrary({ books, initialQuery = "", initialSourceFilter =
                 value={sourceFilter}
                 onChange={(event) => setSourceFilter(event.target.value)}
               >
-                {sourceOptions.map((source) => (
+                <option value="all">All sources</option>
+                {sourceOptions.map(([source, label]) => (
                   <option key={source} value={source}>
-                    {source === "all" ? "All sources" : source}
+                    {label}
                   </option>
                 ))}
               </select>
@@ -349,6 +358,7 @@ export function PrivateLibrary({ books, initialQuery = "", initialSourceFilter =
               pendingAction={pendingAction}
               isPending={isPending}
               onRedoSummary={redoSummary}
+              onRename={renameSource}
               onOpenReadDialog={openReadDialog}
             />
           ))}
@@ -366,6 +376,7 @@ export function PrivateLibrary({ books, initialQuery = "", initialSourceFilter =
               book={book}
               pendingAction={pendingAction}
               isPending={isPending}
+              onRename={renameSource}
               onOpenReadDialog={openReadDialog}
               onRemoveReadLog={removeReadLog}
             />
@@ -512,6 +523,7 @@ function BookListItem(props: {
   pendingAction: string | null;
   isPending: boolean;
   onRedoSummary: (bookId: string) => void;
+  onRename: (id: string, title: string) => void;
   onOpenReadDialog: (book: BookRecord) => void;
 }) {
   const { book, summary, pendingAction, isPending, onRedoSummary, onOpenReadDialog } = props;
@@ -530,9 +542,7 @@ function BookListItem(props: {
               Read
             </span>
           ) : null}
-          {book.sourceTitle ? (
-            <span className="rounded-full bg-stone-100 px-3 py-1 text-xs text-stone-700">{book.sourceTitle}</span>
-          ) : null}
+          <SourceName sourceId={book.editableSourceId} title={book.sourceTitle} onRename={props.onRename} />
         </div>
       </div>
       <p className="mt-4 text-sm leading-6 text-stone-700">{summary}</p>
@@ -564,6 +574,7 @@ function ReadLogItem(props: {
   book: BookRecord;
   pendingAction: string | null;
   isPending: boolean;
+  onRename: (id: string, title: string) => void;
   onOpenReadDialog: (book: BookRecord) => void;
   onRemoveReadLog: (book: BookRecord) => void;
 }) {
@@ -592,7 +603,7 @@ function ReadLogItem(props: {
         <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-stone-800">{book.readLog.comment}</p>
       )}
       <div className="mt-4 flex flex-wrap gap-2 text-xs text-stone-600">
-        {book.sourceTitle ? <span className="rounded-full bg-stone-100 px-3 py-1">{book.sourceTitle}</span> : null}
+        <SourceName sourceId={book.editableSourceId} title={book.sourceTitle} onRename={props.onRename} />
         {markedAt ? <span className="rounded-full bg-stone-100 px-3 py-1">Marked {markedAt}</span> : null}
       </div>
 

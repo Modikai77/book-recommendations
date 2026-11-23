@@ -45,6 +45,10 @@ export async function listBooksForUser(userId?: string, options?: { requireCatal
       include: {
         metadata: true,
         mentions: {
+          where: { source: { OR: [
+            { visibility: "APPROVED_SHARED" },
+            ...(userId ? [{ submittedByUserId: userId }] : [])
+          ] } },
           include: {
             source: true
           },
@@ -65,6 +69,7 @@ export async function listBooksForUser(userId?: string, options?: { requireCatal
       title: book.title,
       author: book.author,
       canonicalSummary: book.canonicalSummary,
+      editableSourceId: userId && book.mentions[0]?.source.submittedByUserId === userId ? book.mentions[0].sourceId : null,
       sourceTitle: book.mentions[0]?.source.title ?? null,
       sourceType: book.mentions[0]?.source.type ?? null,
       submittedAt: book.mentions[0]?.source.createdAt.toISOString() ?? null,
@@ -340,6 +345,7 @@ export async function listPrivateLibraryForUser(userId: string): Promise<BookRec
       title: book.title,
       author: book.author,
       canonicalSummary: book.canonicalSummary,
+      editableSourceId: book.mentions[0]?.sourceId,
       sourceTitle: book.mentions[0]?.source.title ?? null,
       sourceType: book.mentions[0]?.source.type ?? null,
       submittedAt: book.mentions[0]?.source.createdAt.toISOString() ?? null,

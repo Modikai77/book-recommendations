@@ -1,5 +1,6 @@
 "use client";
 
+import { SourceName } from "@/components/source-name";
 import { useState } from "react";
 
 type RecommendationItem = {
@@ -7,6 +8,8 @@ type RecommendationItem = {
     id: string;
     title: string;
     author: string;
+    sourceTitle?: string | null;
+    editableSourceId?: string | null;
     summary?: string | null;
   };
   score: number;
@@ -24,6 +27,11 @@ export function RecommendationForm({ initialPrompt }: { initialPrompt?: string }
 
   const [error, setError] = useState("");
   const [intent, setIntent] = useState<{required: string[]; avoid: string[]; preferred: string[]; broaderQuery: string | null} | null>(null);
+
+  function renameSource(id: string, title: string) {
+    setResults(items => items.map(item => item.book.editableSourceId === id
+      ? { ...item, book: { ...item.book, sourceTitle: title } } : item));
+  }
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -83,6 +91,7 @@ export function RecommendationForm({ initialPrompt }: { initialPrompt?: string }
           <article key={item.book.id} className="rounded-[1.5rem] border border-stone-200 bg-white/80 p-4 md:rounded-[1.75rem] md:p-5">
             <p className="text-xs uppercase tracking-[0.25em] text-stone-500">{item.book.author}</p>
             <h3 className="mt-2 font-serif text-xl sm:text-2xl">{item.book.title}</h3>
+            <div className="mt-2"><SourceName sourceId={item.book.editableSourceId} title={item.book.sourceTitle} onRename={renameSource} /></div>
             <p className="mt-3 text-sm text-stone-700">{item.book.summary}</p>
             <p className="mt-3 text-sm font-medium text-stone-900">{item.reason.summary}</p>
           </article>

@@ -1,3 +1,4 @@
+import { SourceName } from "@/components/source-name";
 import Link from "next/link";
 import { format } from "date-fns";
 import type { Route } from "next";
@@ -82,7 +83,7 @@ export function RecentSourcesPanel({ sources }: { sources: DashboardSourceItem[]
               )}
               <div className="mt-3">
                 <Link
-                  href={`/lists?source=${encodeURIComponent(source.title)}`}
+                  href={`/lists?source=${encodeURIComponent(source.id)}`}
                   className="text-sm font-medium text-stone-900 underline"
                 >
                   Open in Lists
@@ -128,9 +129,7 @@ export function RecentBooksPanel({ books }: { books: BookRecord[] }) {
                     {tag}
                   </span>
                 ))}
-                {book.sourceTitle ? (
-                  <span className="rounded-full bg-white px-3 py-1 text-xs text-stone-600">{book.sourceTitle}</span>
-                ) : null}
+                <SourceName sourceId={book.editableSourceId} title={book.sourceTitle} />
                 {book.submittedAt ? (
                   <span className="rounded-full bg-white px-3 py-1 text-xs text-stone-600">
                     Added {format(new Date(book.submittedAt), "MMM d, yyyy")}

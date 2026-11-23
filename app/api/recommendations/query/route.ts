@@ -63,6 +63,8 @@ export async function POST(request: Request) {
         id: result.book.id,
         title: result.book.title,
         author: result.book.author,
+        sourceTitle: result.book.sourceTitle,
+        editableSourceId: result.book.editableSourceId,
         summary:
           result.book.metadata?.shortSummary || result.book.metadata?.summary || result.book.canonicalSummary || null
       },

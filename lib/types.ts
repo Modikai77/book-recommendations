@@ -62,6 +62,7 @@ export type BookRecord = {
   title: string;
   author: string;
   canonicalSummary?: string | null;
+  editableSourceId?: string | null;
   sourceTitle?: string | null;
   sourceType?: string | null;
   submittedAt?: string | null;
