@@ -84,7 +84,7 @@ function extractTitle(html: string, fallback: string) {
   return decodeHtmlEntities(titleMatch?.[1]?.trim() || fallback);
 }
 
-function htmlToText(html: string) {
+export function htmlToText(html: string) {
   return decodeHtmlEntities(
     html
       .replace(/<script[\s\S]*?<\/script>/gi, " ")

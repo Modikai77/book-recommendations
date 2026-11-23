@@ -39,6 +39,13 @@ export function DashboardActionCards() {
   );
 }
 
+function inboundStatus(source: DashboardSourceItem) {
+  if (!source.id.startsWith("resend_")) return source.status;
+  if (source.status === "FAILED") return "Import failed";
+  if (source.status === "SUBMITTED" || source.status === "PARSED") return "Processing";
+  return source.extractedBookCount ? "Imported" : "No books found";
+}
+
 export function RecentSourcesPanel({ sources }: { sources: DashboardSourceItem[] }) {
   return (
     <section className="rounded-[1.75rem] border border-stone-200 bg-white/80 p-5 shadow-sm md:rounded-[2rem] md:p-6">
@@ -61,12 +68,18 @@ export function RecentSourcesPanel({ sources }: { sources: DashboardSourceItem[]
                   <p className="font-medium text-stone-900">{source.title}</p>
                   <p className="mt-1 text-xs uppercase tracking-[0.25em] text-stone-500">{source.type}</p>
                 </div>
-                <span className="rounded-full bg-white px-3 py-1 text-xs text-stone-600">{source.status}</span>
+                <span className="rounded-full bg-white px-3 py-1 text-xs text-stone-600">{inboundStatus(source)}</span>
               </div>
               <div className="mt-3 flex flex-wrap gap-2 text-xs text-stone-600">
                 <span>{source.extractedBookCount} books</span>
                 <span>Added {format(new Date(source.submittedAt), "MMM d, yyyy")}</span>
               </div>
+              {source.id.startsWith("resend_") && ["FAILED", "SUBMITTED", "PARSED"].includes(source.status) && (
+                <form method="post" action="/api/inbound/retry">
+                  <input type="hidden" name="source" value={source.id} />
+                  <button className="mt-2 text-sm underline" type="submit">Retry import</button>
+                </form>
+              )}
               <div className="mt-3">
                 <Link
                   href={`/lists?source=${encodeURIComponent(source.title)}`}

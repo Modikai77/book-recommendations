@@ -193,9 +193,9 @@ export async function materializePrivateBooksForSource(input: {
   sourceTitle?: string | null;
   recommender?: string | null;
   books: ExtractedBookCandidate[];
-}) {
+}, db: Prisma.TransactionClient = prisma) {
   for (const candidate of input.books) {
-    const book = await prisma.book.upsert({
+    const book = await db.book.upsert({
       where: {
         title_author: {
           title: candidate.title,
@@ -232,13 +232,13 @@ export async function materializePrivateBooksForSource(input: {
       readingTraits: candidate.readingTraits ? { ...oldTraits, ...candidate.readingTraits } : undefined,
       embedding: candidate.embedding
     };
-    await prisma.bookMetadata.upsert({
+    await db.bookMetadata.upsert({
       where: { bookId: book.id },
       update: metadata,
       create: { bookId: book.id, ...metadata }
     });
 
-    const existingMention = await prisma.recommendationMention.findFirst({
+    const existingMention = await db.recommendationMention.findFirst({
       where: {
         sourceId: input.sourceId,
         bookId: book.id
@@ -246,7 +246,7 @@ export async function materializePrivateBooksForSource(input: {
     });
 
     if (!existingMention) {
-      await prisma.recommendationMention.create({
+      await db.recommendationMention.create({
         data: {
           sourceId: input.sourceId,
           bookId: book.id,
@@ -263,7 +263,7 @@ export async function materializePrivateBooksForSource(input: {
         continue;
       }
 
-      const tag = await prisma.tag.upsert({
+      const tag = await db.tag.upsert({
         where: { slug: slugify(label) },
         update: { label },
         create: {
@@ -273,7 +273,7 @@ export async function materializePrivateBooksForSource(input: {
         }
       });
 
-      await prisma.bookTag.upsert({
+      await db.bookTag.upsert({
         where: {
           bookId_tagId_source: {
             bookId: book.id,

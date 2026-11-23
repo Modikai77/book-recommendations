@@ -1,7 +1,14 @@
+import { getCurrentSession } from "@/lib/auth";
+import { forwardingAddress } from "@/lib/inbound-address";
+import { ForwardEmail } from "@/components/forward-email";
 import { SiteShell } from "@/components/site-shell";
 import { SourceSubmissionForm } from "@/components/source-submission-form";
 
-export default function SubmitSourcePage() {
+export default async function SubmitSourcePage() {
+  const session = await getCurrentSession();
+  const secret = process.env.NEXTAUTH_SECRET;
+  const address = session?.user?.id && secret && process.env.RESEND_API_KEY && process.env.RESEND_WEBHOOK_SECRET
+    ? forwardingAddress(session.user.id, secret) : undefined;
   return (
     <SiteShell>
       <section className="space-y-5 md:space-y-6">
@@ -13,6 +20,7 @@ export default function SubmitSourcePage() {
             preserved as weak context for extraction without requiring direct vault sync.
           </p>
         </div>
+        {address && <ForwardEmail address={address} />}
         <SourceSubmissionForm />
       </section>
     </SiteShell>
