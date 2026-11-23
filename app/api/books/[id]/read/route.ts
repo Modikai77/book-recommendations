@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getRequiredSessionUser } from "@/lib/session-user";
 
 const readLogSchema = z.object({
+  comment: z.string().nullable().optional(),
   readAt: z.string().date().nullable().optional(),
   ratingOutOf10: z.number().int().min(1).max(10).nullable().optional()
 });
@@ -16,7 +17,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id } = await params;
-  const parsed = readLogSchema.safeParse(await request.json().catch(() => ({})));
+  const parsed = readLogSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid read details" }, { status: 400 });
   }
@@ -46,38 +47,31 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const readAt = parsed.data.readAt ? new Date(`${parsed.data.readAt}T12:00:00.000Z`) : null;
 
-  const readLog = await prisma.readBookLog.upsert({
-    where: {
-      userId_bookId: {
-        userId: sessionResult.user.id,
-        bookId: id
-      }
-    },
-    update: {
-      readAt,
-      ratingOutOf10: parsed.data.ratingOutOf10 ?? null
-    },
-    create: {
-      userId: sessionResult.user.id,
-      bookId: id,
-      readAt,
-      ratingOutOf10: parsed.data.ratingOutOf10 ?? null
+  const userId = sessionResult.user.id;
+  const where = { userId_bookId: { userId, bookId: id } };
+  const comment = parsed.data.comment === undefined ? undefined : parsed.data.comment?.trim() || null;
+  const rating = parsed.data.ratingOutOf10;
+  const readLog = await prisma.$transaction(async tx => {
+    const previous = await tx.readBookLog.findUnique({ where, select: { ratingOutOf10: true } });
+    const saved = await tx.readBookLog.upsert({
+      where,
+      update: { readAt: parsed.data.readAt === undefined ? undefined : readAt, ratingOutOf10: rating, comment },
+      create: { userId, bookId: id, readAt, ratingOutOf10: rating, comment }
+    });
+    if (!previous || previous.ratingOutOf10 !== saved.ratingOutOf10) {
+      await tx.userBookInteraction.create({
+        data: { userId, bookId: id, interactionType: InteractionType.MARKED_READ,
+          strength: saved.ratingOutOf10 ? saved.ratingOutOf10 / 2 : 1 }
+      });
     }
-  });
-
-  await prisma.userBookInteraction.create({
-    data: {
-      userId: sessionResult.user.id,
-      bookId: id,
-      interactionType: InteractionType.MARKED_READ,
-      strength: parsed.data.ratingOutOf10 ? parsed.data.ratingOutOf10 / 2 : 1
-    }
+    return saved;
   });
 
   return NextResponse.json(
     {
       readLog: {
         isRead: true,
+        comment: readLog.comment,
         readAt: readLog.readAt?.toISOString() ?? null,
         ratingOutOf10: readLog.ratingOutOf10,
         markedAt: readLog.createdAt.toISOString()

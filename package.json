@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build --webpack",
+    "prebuild": "if [ \"$VERCEL_ENV\" = production ]; then prisma db execute --schema prisma/schema.prisma --file prisma/live-add-read-comment.sql; fi",
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",

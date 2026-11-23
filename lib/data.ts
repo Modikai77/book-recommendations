@@ -16,7 +16,7 @@ import type {
 } from "@/lib/types";
 
 function serializeReadLog(
-  readLog?: { readAt: Date | null; ratingOutOf10: number | null; createdAt: Date } | null
+  readLog?: { readAt: Date | null; ratingOutOf10: number | null; comment: string | null; createdAt: Date } | null
 ): BookReadLogRecord | null {
   if (!readLog) {
     return null;
@@ -26,6 +26,7 @@ function serializeReadLog(
     isRead: true,
     readAt: readLog.readAt?.toISOString() ?? null,
     ratingOutOf10: readLog.ratingOutOf10,
+    comment: readLog.comment,
     markedAt: readLog.createdAt.toISOString()
   };
 }

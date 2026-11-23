@@ -42,6 +42,7 @@ export function PrivateLibrary({ books, initialQuery = "", initialSourceFilter =
   const [readDialogBook, setReadDialogBook] = useState<BookRecord | null>(null);
   const [readDate, setReadDate] = useState(todayDateInputValue());
   const [readYear, setReadYear] = useState(String(new Date().getFullYear()));
+  const [comment, setComment] = useState("");
   const [ratingOutOf10, setRatingOutOf10] = useState("");
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -122,7 +123,8 @@ export function PrivateLibrary({ books, initialQuery = "", initialSourceFilter =
   }
 
   function openReadDialog(book: BookRecord) {
-    const initialDate = book.readLog?.readAt ? book.readLog.readAt.slice(0, 10) : todayDateInputValue();
+    const initialDate = book.readLog ? (book.readLog.readAt?.slice(0, 10) ?? "") : todayDateInputValue();
+    setComment(book.readLog?.comment ?? "");
     setReadDialogBook(book);
     setReadDate(initialDate);
     setReadYear(initialDate.slice(0, 4));
@@ -158,6 +160,7 @@ export function PrivateLibrary({ books, initialQuery = "", initialSourceFilter =
       mode === "skip"
         ? { readAt: null, ratingOutOf10: null }
         : {
+            comment,
             readAt: readDate || null,
             ratingOutOf10: ratingOutOf10 ? Number(ratingOutOf10) : null
           };
@@ -381,7 +384,7 @@ export function PrivateLibrary({ books, initialQuery = "", initialSourceFilter =
             role="dialog"
             aria-modal="true"
             aria-labelledby="read-dialog-title"
-            className="w-full max-w-lg rounded-[1.5rem] border border-stone-200 bg-white p-5 shadow-xl md:rounded-[1.75rem] md:p-6"
+            className="max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-[1.5rem] border border-stone-200 bg-white p-5 shadow-xl md:rounded-[1.75rem] md:p-6"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -465,15 +468,26 @@ export function PrivateLibrary({ books, initialQuery = "", initialSourceFilter =
               </div>
             </label>
 
+            <label className="mt-5 block space-y-2 text-sm">
+              <span className="text-stone-700">Your comment (optional)</span>
+              <textarea
+                rows={3}
+                value={comment}
+                onChange={(event) => setComment(event.target.value)}
+                className="w-full resize-y rounded-2xl border border-stone-200 px-4 py-3"
+              />
+            </label>
+            {error && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}
+
             <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
-                onClick={() => saveReadLog(readDialogBook, "skip")}
+                onClick={() => readDialogBook.readLog ? setReadDialogBook(null) : saveReadLog(readDialogBook, "skip")}
                 disabled={readDialogPending}
                 className="inline-flex items-center justify-center gap-2 rounded-full border border-stone-300 px-4 py-3 text-sm font-medium text-stone-700 transition hover:bg-stone-100 disabled:opacity-60 sm:py-2"
               >
                 <Check className="h-4 w-4" aria-hidden="true" />
-                Skip details
+                {readDialogBook.readLog ? "Cancel" : "Skip details"}
               </button>
               <button
                 type="button"
@@ -574,6 +588,9 @@ function ReadLogItem(props: {
         </div>
       </div>
 
+      {book.readLog?.comment && (
+        <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-stone-800">{book.readLog.comment}</p>
+      )}
       <div className="mt-4 flex flex-wrap gap-2 text-xs text-stone-600">
         {book.sourceTitle ? <span className="rounded-full bg-stone-100 px-3 py-1">{book.sourceTitle}</span> : null}
         {markedAt ? <span className="rounded-full bg-stone-100 px-3 py-1">Marked {markedAt}</span> : null}

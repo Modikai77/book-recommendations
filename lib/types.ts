@@ -81,6 +81,7 @@ export type BookReadLogRecord = {
   isRead: true;
   readAt?: string | null;
   ratingOutOf10?: number | null;
+  comment?: string | null;
   markedAt: string;
 };
 

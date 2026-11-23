@@ -1,0 +1,1 @@
+ALTER TABLE "ReadBookLog" ADD COLUMN IF NOT EXISTS "comment" TEXT;
