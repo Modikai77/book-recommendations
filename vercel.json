@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "app/api/queues/web-import/route.ts": {
+      "experimentalTriggers": [{ "type": "queue/v2beta", "topic": "web-import" }]
+    }
+  }
+}

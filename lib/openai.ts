@@ -24,7 +24,7 @@ export function getOpenAIClient() {
   return new OpenAI({ apiKey });
 }
 
-export async function createEmbeddings(inputs: string[]) {
+export async function createEmbeddings(inputs: string[], options?: { timeout: number; maxRetries: number }) {
   const client = getOpenAIClient();
 
   if (!client || !inputs.length) {
@@ -34,7 +34,7 @@ export async function createEmbeddings(inputs: string[]) {
   const response = await client.embeddings.create({
     model: process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-small",
     input: inputs
-  });
+  }, options);
 
   return response.data.map((item) => item.embedding);
 }

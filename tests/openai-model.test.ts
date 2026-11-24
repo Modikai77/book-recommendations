@@ -44,7 +44,7 @@ describe("GPT-6.1 Sol migration", () => {
       expect(payload).toMatchObject({ model: "gpt-6.1-sol", reasoning: { effort: "low" }, text: { format: { type: "json_schema" } } });
     }
     expect(api.responses.mock.calls[4][0]).toMatchObject({model: "gpt-6.2-sol", reasoning: {effort:"medium"}});
-    expect(api.embeddings).toHaveBeenCalledWith(expect.objectContaining({ model: "text-embedding-3-small" }));
+    expect(api.embeddings).toHaveBeenCalledWith(expect.objectContaining({ model: "text-embedding-3-small" }), undefined);
   });
 });
 

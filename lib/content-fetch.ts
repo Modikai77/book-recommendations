@@ -104,6 +104,7 @@ export async function fetchReadableContent(url: string) {
   let response: Response | undefined;
   try {
     response = await fetch(url, {
+      signal: AbortSignal.timeout(20_000),
       headers: {
         "User-Agent": "BookRecommendationsBot/1.0"
       }

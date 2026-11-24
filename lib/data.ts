@@ -199,6 +199,7 @@ export async function materializePrivateBooksForSource(input: {
   sourceTitle?: string | null;
   recommender?: string | null;
   books: ExtractedBookCandidate[];
+  preserveExistingSummary?: boolean;
 }, db: Prisma.TransactionClient = prisma) {
   for (const candidate of input.books) {
     const book = await db.book.upsert({
@@ -208,7 +209,7 @@ export async function materializePrivateBooksForSource(input: {
           author: candidate.author
         }
       },
-      update: {
+      update: input.preserveExistingSummary ? {} : {
         canonicalSummary: candidate.bookSummary || candidate.rationale || candidate.snippet || undefined
       },
       create: {

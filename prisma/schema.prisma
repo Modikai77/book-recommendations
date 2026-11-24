@@ -116,7 +116,19 @@ model Source {
   submittedBy       User               @relation(fields: [submittedByUserId], references: [id], onDelete: Cascade)
   extractions       SourceExtraction[]
   mentions          RecommendationMention[]
+  webImport         WebImport?
   reviews           AdminReview[]
+}
+
+model WebImport {
+  sourceId  String @id
+  source    Source @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  stage     String @default("fetch")
+  revision  Int    @default(0)
+  offset    Int    @default(0)
+  bookCount Int    @default(0)
+  error     String?
+  updatedAt DateTime @default(now()) @updatedAt
 }
 
 model SourceExtraction {

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { WebImportProgress } from "@/components/web-import-progress";
 import Link from "next/link";
 import { readSubmissionResponse, SubmissionError, submissionProgressLabel, type SubmissionResult } from "@/lib/source-submission-client";
 
@@ -23,6 +24,8 @@ export function SourceSubmissionForm() {
   const [showPasteFallback, setShowPasteFallback] = useState(false);
   const [pastedArticleText, setPastedArticleText] = useState("");
   const [submissionReference, setSubmissionReference] = useState<string | null>(null);
+  const pendingLink = useRef<{ key: string; id: string } | null>(null);
+  const [accepted, setAccepted] = useState("");
   const [progress, setProgress] = useState("");
 
   async function onMarkdownFileChange(event: React.ChangeEvent<HTMLInputElement>) {
@@ -39,6 +42,7 @@ export function SourceSubmissionForm() {
     event.preventDefault();
     setLoading(true);
     setError(null);
+    setAccepted("");
     setResult(null);
     setSubmissionReference(null);
     setProgress("Starting import…");
@@ -47,9 +51,12 @@ export function SourceSubmissionForm() {
       if (type === "web_link" && showPasteFallback && !pastedArticleText.trim()) {
         throw new Error("Paste the article text before importing.");
       }
-      const requestId = crypto.randomUUID();
+      const key = JSON.stringify([url.trim(), title.trim(), showPasteFallback ? pastedArticleText.trim() : ""]);
+      const requestId = type === "web_link" && pendingLink.current?.key === key
+        ? pendingLink.current.id : crypto.randomUUID();
+      if (type === "web_link") pendingLink.current = { key, id: requestId };
       setSubmissionReference(requestId);
-      const response = await fetch("/api/sources", {
+      const response = await fetch(type === "web_link" ? "/api/web-imports" : "/api/sources", {
         method: "POST",
         headers: { "Content-Type": "application/json", "X-Submission-Id": requestId, Accept: "application/x-ndjson" },
         body: JSON.stringify({
@@ -65,7 +72,12 @@ export function SourceSubmissionForm() {
       });
 
       const payload = await readSubmissionResponse(response, (event) => setProgress(submissionProgressLabel(event)));
-      setResult(payload);
+      if (type === "web_link") {
+        setAccepted(payload.sourceId);
+        pendingLink.current = null;
+      } else {
+        setResult(payload);
+      }
       setRawText("");
       setUrl("");
       setFileName("");
@@ -206,6 +218,7 @@ export function SourceSubmissionForm() {
           {loading ? "Submitting..." : type === "web_link" && showPasteFallback ? "Import pasted article" : "Submit source"}
         </button>
 
+        {accepted && <p role="status" className="mt-3 text-sm">Import saved. You can close this tab and check progress here later.</p>}
         {error ? <p role="alert" className="mt-3 text-sm text-red-600">{error}</p> : null}
         {loading ? <p role="status" className="mt-3 text-sm text-stone-600">{progress}</p> : null}
         {submissionReference && (loading || error) ? (
@@ -221,6 +234,10 @@ export function SourceSubmissionForm() {
           <li>3. The source becomes available in your private workspace immediately.</li>
           <li>4. Admin review can approve high-quality entries into the shared catalog.</li>
         </ol>
+
+        <WebImportProgress key={accepted} onPaste={articleUrl => {
+          setType("web_link"); setUrl(articleUrl); setTitle(""); setPastedArticleText(""); setShowPasteFallback(true);
+        }} />
 
         {result ? (
           <div className="mt-6 rounded-[1.25rem] bg-white/10 p-4 md:rounded-[1.5rem]">

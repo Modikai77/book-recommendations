@@ -29,7 +29,7 @@ describe("web source retrieval diagnostics", () => {
     expect(diagnostics.cause).toMatchObject({ message: "Upstream returned HTTP 403 Forbidden" });
     expect(JSON.stringify(diagnostics)).not.toMatch(/COOKIE_SECRET|REDIRECT_SECRET|URL_SECRET|private response body/);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock.mock.calls[0][1]).toEqual({ headers: { "User-Agent": "BookRecommendationsBot/1.0" } });
+    expect(fetchMock.mock.calls[0][1]).toEqual({ signal: expect.any(AbortSignal), headers: { "User-Agent": "BookRecommendationsBot/1.0" } });
   });
 
   it("preserves the original transport exception and nested cause", async () => {

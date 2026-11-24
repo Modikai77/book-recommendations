@@ -4,6 +4,8 @@ import { normalizeObsidianMarkdown } from "@/lib/markdown";
 import { createEmbeddings, getOpenAIClient, OPENAI_TEXT_OPTIONS } from "@/lib/openai";
 import type { ExtractedBookCandidate, SourceType } from "@/lib/types";
 
+type ImportRequestOptions = { timeout: number; maxRetries: number };
+
 const extractedBookSchema = z.object({
   title: z.string(),
   author: z.string(),
@@ -109,6 +111,7 @@ export async function extractBooksFromSource(input: {
   type: SourceType;
   parsedText: string;
   metadata?: Record<string, unknown>;
+  requestOptions?: ImportRequestOptions;
 }): Promise<{
   recommender?: string;
   sourceSummary?: string;
@@ -184,7 +187,7 @@ export async function extractBooksFromSource(input: {
         }
       }
     }
-  });
+  }, input.requestOptions);
 
   const rawOutput = completion.output_text;
 
@@ -329,6 +332,7 @@ export async function enrichBookSummaries(input: {
   sourceTitle?: string;
   recommender?: string;
   books: ExtractedBookCandidate[];
+  requestOptions?: ImportRequestOptions;
 }): Promise<ExtractedBookCandidate[]> {
   if (!input.books.length) {
     return input.books;
@@ -378,7 +382,7 @@ export async function enrichBookSummaries(input: {
           schema: z.toJSONSchema(summaryPayloadSchema, { target: "draft-7" })
         }
       }
-    });
+    }, input.requestOptions);
 
     const rawOutput = response.output_text;
     if (!rawOutput) {
@@ -417,7 +421,8 @@ export async function enrichBookSummaries(input: {
         ...(t.pageCount && t.pageSource && searchedUrls.has(t.pageSource) && { pageCount: t.pageCount, pageSource: t.pageSource })
       }};
     });
-  } catch {
+  } catch (error) {
+    if (input.requestOptions) throw error;
     return input.books.map((book) => ({
       ...book,
       bookSummary: fallbackBookSummary(book)
@@ -513,7 +518,7 @@ export function inferFallbackBookTags(book: ExtractedBookCandidate) {
   return tags.slice(0, 5);
 }
 
-export async function enrichBookTags(books: ExtractedBookCandidate[]) {
+export async function enrichBookTags(books: ExtractedBookCandidate[], requestOptions?: ImportRequestOptions) {
   if (!books.length) {
     return books;
   }
@@ -582,7 +587,7 @@ export async function enrichBookTags(books: ExtractedBookCandidate[]) {
           }
         }
       }
-    });
+    }, requestOptions);
 
     const rawOutput = response.output_text;
     if (!rawOutput) {
@@ -603,7 +608,8 @@ export async function enrichBookTags(books: ExtractedBookCandidate[]) {
         ...inferFallbackBookTags(book)
       ])
     }));
-  } catch {
+  } catch (error) {
+    if (requestOptions) throw error;
     return books.map((book) => ({
       ...book,
       tags: normalizeBookTags([...(book.tags ?? []), ...inferFallbackBookTags(book)])
@@ -611,7 +617,7 @@ export async function enrichBookTags(books: ExtractedBookCandidate[]) {
   }
 }
 
-export async function enrichBookEmbeddings(books: ExtractedBookCandidate[]) {
+export async function enrichBookEmbeddings(books: ExtractedBookCandidate[], requestOptions?: ImportRequestOptions) {
   if (!books.length) {
     return books;
   }
@@ -622,14 +628,15 @@ export async function enrichBookEmbeddings(books: ExtractedBookCandidate[]) {
         [book.title, book.author, book.bookSummary || book.rationale || book.snippet]
           .filter(Boolean)
           .join(". ")
-      )
+      ), requestOptions
     );
 
     return books.map((book, index) => ({
       ...book,
       embedding: embeddings[index] ?? undefined
     }));
-  } catch {
+  } catch (error) {
+    if (requestOptions) throw error;
     return books;
   }
 }
